@@ -1,5 +1,5 @@
 """
-Main Window da aplicação IR Tester
+Main Window for the IR Tester application
 """
 
 from PyQt6.QtWidgets import (
@@ -46,7 +46,7 @@ class IRPlotWidget(QWidget):
         layout.addWidget(self.canvas)
         
     def _style_axes(self):
-        """Aplica estilos escuros aos eixos"""
+        """Applies dark styles to the axes"""
         self.ax.tick_params(colors='#888888', labelsize=8)
         self.ax.spines['bottom'].set_color('#444444')
         self.ax.spines['top'].set_color('#444444') 
@@ -58,12 +58,12 @@ class IRPlotWidget(QWidget):
         self.figure.tight_layout()
 
     def plot_ir(self, file_path):
-        """Calcula e plota a resposta em frequência do IR"""
+        """Calculates and plots the IR frequency response"""
         try:
             # Ler áudio
             data, samplerate = sf.read(file_path)
             
-            # Se estéreo, mixa para mono para visualização
+            # If stereo, mix down to mono for visualization
             if len(data.shape) > 1:
                 data = np.mean(data, axis=1)
                 
@@ -89,29 +89,29 @@ class IRPlotWidget(QWidget):
             self.ax.clear()
             self._style_axes()
             
-            # Filtra para 20Hz - 20kHz
+            # Filter for 20Hz - 20kHz
             mask = (xf >= 20) & (xf <= 20000)
             
             self.ax.semilogx(xf[mask], response_db[mask], color='#0078d4', linewidth=1.5)
-            self.ax.set_xlabel('Frequência (Hz)', fontsize=8)
+            self.ax.set_xlabel('Frequency (Hz)', fontsize=8)
             self.ax.set_ylabel('Amplitude (dB)', fontsize=8)
-            self.ax.set_title('Resposta em Frequência', color='#cccccc', fontsize=9)
-            self.ax.set_ylim([-60, 5]) # Limita eixo Y para focar no útil
+            self.ax.set_title('Frequency Response', color='#cccccc', fontsize=9)
+            self.ax.set_ylim([-60, 5]) # Limit Y axis to focus on useful range
             self.ax.set_xlim([20, 20000])
             
-            # Converte ticks do eixo X para Hz legíveis
+            # Convert X axis ticks to readable Hz
             self.ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
             
             self.canvas.draw()
             
         except Exception as e:
-            print(f"Erro ao plotar IR: {e}")
+            print(f"Error plotting IR: {e}")
             self.clear_plot()
 
     def clear_plot(self):
         self.ax.clear()
         self._style_axes()
-        self.ax.text(0.5, 0.5, "Selecione um IR", ha='center', va='center', color='#555555')
+        self.ax.text(0.5, 0.5, "Select an IR", ha='center', va='center', color='#555555')
         self.canvas.draw()
 
 
@@ -121,39 +121,39 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("IR Tester - Impulse Response Tester")
         self.setMinimumSize(1000, 700)
         
-        # Inicializa os componentes de áudio
+        # Initialize audio components
         self.audio_engine = AudioEngine()
         self.convolution_processor = ConvolutionProcessor()
         self.convolution_worker = None
         
-        # Estado para Equalizador
-        self.header_raw_audio = None # Armazena áudio sem EQ para processamento
+        # State for Equalizer
+        self.header_raw_audio = None # Stores audio without EQ for processing
         self.current_sample_rate = 44100
         self.equalizer_dialog = EqualizerDialog(self)
         self.equalizer_dialog.gains_changed.connect(self.update_equalization)
         self.equalizer_dialog.eq_toggled.connect(self.on_eq_toggled)
         
-        # Listas de arquivos
+        # File lists
         self.ir_files = {}  # {display_name: full_path}
         self.di_files = {}  # {display_name: full_path}
         
-        # Estado atual
+        # Current state
         self.current_ir = None
         self.current_di = None
         self.is_playing = False
-        self.is_looping = True  # Loop ativo por padrão
+        self.is_looping = True  # Loop active by default
         self.convolution_worker = None
         self._preserve_position = False
         self._saved_position = 0
         self._was_playing = True
         self._last_mix_value = 100  # Valor padrao para o toggle
         
-        # Timer para debounce do mix slider
+        # Timer for mix slider debounce
         self.mix_debounce_timer = QTimer()
         self.mix_debounce_timer.setSingleShot(True)
         self.mix_debounce_timer.timeout.connect(self._on_mix_debounced)
         
-        # Timer para atualizar a posição
+        # Timer to update position
         self.position_timer = QTimer()
         self.position_timer.timeout.connect(self.update_position)
         self.position_timer.setInterval(100)
@@ -169,7 +169,7 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(15)
         main_layout.setContentsMargins(20, 20, 20, 20)
         
-        # Título
+        # Title
         title_label = QLabel("🎸 IR Tester")
         title_font = QFont()
         title_font.setPointSize(24)
@@ -178,35 +178,35 @@ class MainWindow(QMainWindow):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         main_layout.addWidget(title_label)
         
-        # Área principal com splitter
+        # Main area with splitter
         splitter = QSplitter(Qt.Orientation.Horizontal)
         
-        # Painel de IRs
+        # IR Panel
         ir_panel = self.create_ir_panel()
         splitter.addWidget(ir_panel)
         
-        # Painel de DIs
+        # DI Panel
         di_panel = self.create_di_panel()
         splitter.addWidget(di_panel)
         
         splitter.setSizes([500, 500])
         main_layout.addWidget(splitter, 1)
         
-        # Barra de progresso para convolução (oculta por padrão)
+        # Progress bar for convolution (hidden by default)
         self.progress_bar = QProgressBar()
         self.progress_bar.setMinimum(0)
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(0)
         self.progress_bar.setVisible(False)
         self.progress_bar.setTextVisible(True)
-        self.progress_bar.setFormat("Processando... %p%")
+        self.progress_bar.setFormat("Processing... %p%")
         main_layout.addWidget(self.progress_bar)
         
-        # Controles de reprodução
+        # Playback controls
         controls_frame = self.create_controls_panel()
         main_layout.addWidget(controls_frame)
         
-        # Controle de volume
+        # Volume control
         volume_frame = self.create_volume_panel()
         main_layout.addWidget(volume_frame)
         
@@ -214,14 +214,14 @@ class MainWindow(QMainWindow):
         group = QGroupBox("  Impulse Responses (IR)")
         layout = QVBoxLayout(group)
         
-        # Botões de controle
+        # Control buttons
         btn_layout = QHBoxLayout()
         
-        self.btn_add_ir = QPushButton(" ＋  Adicionar")
+        self.btn_add_ir = QPushButton(" ＋  Add")
         self.btn_add_ir.clicked.connect(lambda: self.open_unified_add_dialog(is_ir=True))
-        self.btn_export_marked = QPushButton(" ➱  Exportar")
-        self.btn_remove_ir = QPushButton(" ✕  Remover")
-        self.btn_clear_ir = QPushButton(" ⟲  Limpar")
+        self.btn_export_marked = QPushButton(" ➱  Export")
+        self.btn_remove_ir = QPushButton(" ✕  Remove")
+        self.btn_clear_ir = QPushButton(" ⟲  Clear")
         
         btn_layout.addWidget(self.btn_add_ir)
         btn_layout.addWidget(self.btn_export_marked)
@@ -230,20 +230,20 @@ class MainWindow(QMainWindow):
         
         layout.addLayout(btn_layout)
         
-        # Árvore de IRs
+        # IR Tree
         self.ir_tree = QTreeWidget()
         self.ir_tree.setHeaderHidden(True)
         self.ir_tree.setSelectionMode(QTreeWidget.SelectionMode.SingleSelection)
         layout.addWidget(self.ir_tree)
         
-        # Info do IR selecionado
-        self.ir_info_label = QLabel("Nenhum IR selecionado")
+        # Selected IR info
+        self.ir_info_label = QLabel("No IR selected")
         self.ir_info_label.setStyleSheet("color: #888888; font-style: italic;")
         layout.addWidget(self.ir_info_label)
         
-        # Gráfico de Frequência
+        # Frequency Graph
         self.ir_plot_widget = IRPlotWidget()
-        self.ir_plot_widget.setFixedHeight(180) # Altura fixa para não ocupar muito espaço
+        self.ir_plot_widget.setFixedHeight(180) # Fixed height to not take too much space
         layout.addWidget(self.ir_plot_widget)
         
         return group
@@ -252,13 +252,13 @@ class MainWindow(QMainWindow):
         group = QGroupBox("  Direct Input (DI)")
         layout = QVBoxLayout(group)
         
-        # Botões de controle
+        # Control buttons
         btn_layout = QHBoxLayout()
         
-        self.btn_add_di = QPushButton(" ＋  Adicionar")
+        self.btn_add_di = QPushButton(" ＋  Add")
         self.btn_add_di.clicked.connect(lambda: self.open_unified_add_dialog(is_ir=False))
-        self.btn_remove_di = QPushButton(" ✕  Remover")
-        self.btn_clear_di = QPushButton(" ⟲  Limpar")
+        self.btn_remove_di = QPushButton(" ✕  Remove")
+        self.btn_clear_di = QPushButton(" ⟲  Clear")
         
         btn_layout.addWidget(self.btn_add_di)
         btn_layout.addWidget(self.btn_remove_di)
@@ -266,14 +266,14 @@ class MainWindow(QMainWindow):
         
         layout.addLayout(btn_layout)
         
-        # Árvore de DIs
+        # DI Tree
         self.di_tree = QTreeWidget()
         self.di_tree.setHeaderHidden(True)
         self.di_tree.setSelectionMode(QTreeWidget.SelectionMode.SingleSelection)
         layout.addWidget(self.di_tree)
         
-        # Info do DI selecionado
-        self.di_info_label = QLabel("Nenhum DI selecionado")
+        # Selected DI info
+        self.di_info_label = QLabel("No DI selected")
         self.di_info_label.setStyleSheet("color: #888888; font-style: italic;")
         layout.addWidget(self.di_info_label)
         
@@ -283,7 +283,7 @@ class MainWindow(QMainWindow):
         frame = QFrame()
         layout = QVBoxLayout(frame)
         
-        # Slider de posição
+        # Position slider
         position_layout = QHBoxLayout()
         
         self.time_label = QLabel("00:00")
@@ -302,17 +302,17 @@ class MainWindow(QMainWindow):
         
         layout.addLayout(position_layout)
         
-        # Botões de controle
+        # Control buttons
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
         self.btn_rewind = QPushButton("⏪")
-        self.btn_rewind.setToolTip("Retroceder 5 segundos")
+        self.btn_rewind.setToolTip("Rewind 5 seconds")
         self.btn_rewind.setMinimumSize(50, 50)
         btn_layout.addWidget(self.btn_rewind)
         
         self.btn_stop = QPushButton("⏹")
-        self.btn_stop.setToolTip("Parar")
+        self.btn_stop.setToolTip("Stop")
         self.btn_stop.setMinimumSize(50, 50)
         btn_layout.addWidget(self.btn_stop)
         
@@ -323,13 +323,13 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(self.btn_play_pause)
         
         self.btn_forward = QPushButton("⏩")
-        self.btn_forward.setToolTip("Avançar 5 segundos")
+        self.btn_forward.setToolTip("Forward 5 seconds")
         self.btn_forward.setMinimumSize(50, 50)
         btn_layout.addWidget(self.btn_forward)
         
-        # Botão de loop (ativo por padrão)
+        # Loop button (active by default)
         self.btn_loop = QPushButton("🔄")
-        self.btn_loop.setToolTip("Loop (repetir)")
+        self.btn_loop.setToolTip("Loop (repeat)")
         self.btn_loop.setMinimumSize(50, 50)
         self.btn_loop.setCheckable(True)
         self.btn_loop.setChecked(True)
@@ -359,9 +359,9 @@ class MainWindow(QMainWindow):
         self.volume_label.setMinimumWidth(40)
         layout.addWidget(self.volume_label)
         
-        # Botão Equalizer
+        # Equalizer Button
         self.btn_eq = QPushButton("Equalizer 🎚️")
-        self.btn_eq.setToolTip("Abrir Equalizador Gráfico")
+        self.btn_eq.setToolTip("Open Graphic Equalizer")
         self.btn_eq.clicked.connect(self.equalizer_dialog.show)
         layout.addWidget(self.btn_eq)
         
@@ -382,9 +382,9 @@ class MainWindow(QMainWindow):
         self.mix_label.setMinimumWidth(40)
         layout.addWidget(self.mix_label)
 
-        # Botão Dry/Wet Toggle
+        # Dry/Wet Toggle Button
         self.btn_dry_wet = QPushButton("D/W")
-        self.btn_dry_wet.setToolTip("Alternar entre Dry (0%) e o último valor Wet")
+        self.btn_dry_wet.setToolTip("Toggle between Dry (0%) and last Wet value")
         self.btn_dry_wet.setCheckable(True)
         self.btn_dry_wet.setChecked(True)
         self.btn_dry_wet.setMinimumWidth(60)
@@ -394,18 +394,18 @@ class MainWindow(QMainWindow):
         return frame
         
     def connect_signals(self):
-        # Botões de IR
-        # self.btn_add_ir e self.btn_add_ir_menu são conectados via menu/actions
+        # IR Buttons
+        # self.btn_add_ir and self.btn_add_ir_menu are connected via menu/actions
         self.btn_export_marked.clicked.connect(self.export_marked_irs)
         self.btn_remove_ir.clicked.connect(self.remove_selected_ir)
         self.btn_clear_ir.clicked.connect(self.clear_ir_list)
         
-        # Botões de DI
-        # Conexões via menu
+        # DI Buttons
+        # Connections via menu
         self.btn_remove_di.clicked.connect(self.remove_selected_di)
         self.btn_clear_di.clicked.connect(self.clear_di_list)
         
-        # Seleção de arquivos (árvore)
+        # File selection (tree)
         self.ir_tree.currentItemChanged.connect(self.on_ir_selected)
         self.di_tree.currentItemChanged.connect(self.on_di_selected)
         
@@ -428,16 +428,16 @@ class MainWindow(QMainWindow):
         self.is_looping = checked
         
     def open_unified_add_dialog(self, is_ir=True):
-        """Abre o diálogo universal para adicionar arquivos e pastas usando QFileDialog modificado"""
-        dialog = QFileDialog(self, "Adicionar IRs" if is_ir else "Adicionar DIs")
+        """Opens the universal dialog to add files and folders using modified QFileDialog"""
+        dialog = QFileDialog(self, "Add IRs" if is_ir else "Add DIs")
         dialog.setFileMode(QFileDialog.FileMode.Directory)
         dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
         
-        # Define filtros
-        dialog.setNameFilters(["Arquivos de áudio (*.wav *.mp3 *.flac *.aiff *.ogg)", "Todos os arquivos (*)"])
+        # Set filters
+        dialog.setNameFilters(["Audio files (*.wav *.mp3 *.flac *.aiff *.ogg)", "All files (*)"])
         
-        # HACK: Encontra as views internas (ListView e TreeView) e permite seleção múltipla
-        # Isso permite selecionar arquivos E pastas ao mesmo tempo na interface do Qt
+        # HACK: Find internal views (ListView and TreeView) and allow multi-selection
+        # This allows selecting files AND folders at the same time in Qt's interface
         views = dialog.findChildren((QListView, QTreeView))
         for view in views:
             view.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -447,11 +447,11 @@ class MainWindow(QMainWindow):
             self.process_added_paths(paths, is_ir)
             
     def process_added_paths(self, paths, is_ir=True):
-        """Processa a lista de caminhos adicionados (arquivos ou pastas)"""
+        """Processes the list of added paths (files or folders)"""
         import os
         
-        # Define qual conjunto de funções usar
-        # Define qual conjunto de dados usar
+        # Define which data set to use
+        # Define which data set to use
         if is_ir:
             tree_widget = self.ir_tree
             file_dict = self.ir_files
@@ -479,7 +479,7 @@ class MainWindow(QMainWindow):
 
             
     def add_files_to_tree(self, files, file_dict, tree_widget):
-        """Adiciona arquivos individuais à árvore (sem pasta pai)"""
+        """Adds individual files to the tree (without parent folder)"""
         import os
         tree_widget.setUpdatesEnabled(False)
         try:
@@ -490,7 +490,7 @@ class MainWindow(QMainWindow):
                 if key not in file_dict:
                     file_dict[key] = filepath
                     
-                    # Procura ou cria o item "Arquivos Soltos"
+                    # Search for or create "Loose Files" item
                     loose_files_item = None
                     for i in range(tree_widget.topLevelItemCount()):
                         item = tree_widget.topLevelItem(i)
@@ -500,7 +500,7 @@ class MainWindow(QMainWindow):
                     
                     if loose_files_item is None:
                         loose_files_item = QTreeWidgetItem(tree_widget)
-                        loose_files_item.setText(0, "📄 Arquivos Soltos")
+                        loose_files_item.setText(0, "📄 Loose Files")
                         loose_files_item.setData(0, Qt.ItemDataRole.UserRole, "_loose_files_")
                         loose_files_item.setExpanded(True)
                         loose_files_item.setCheckState(0, Qt.CheckState.Unchecked)
@@ -514,7 +514,7 @@ class MainWindow(QMainWindow):
             tree_widget.setUpdatesEnabled(True)
                 
     def add_folder_to_tree(self, folder, file_dict, tree_widget):
-        """Adiciona uma pasta inteira à árvore mantendo a estrutura"""
+        """Adds an entire folder to the tree maintaining structure"""
         import os
         extensions = ('.wav', '.WAV', '.aiff', '.AIFF', '.flac', '.FLAC', '.mp3', '.MP3')
         
@@ -533,7 +533,7 @@ class MainWindow(QMainWindow):
             path_to_item = {"": folder_item}
             
             for root, dirs, files in os.walk(folder):
-                # Ordena diretórios e arquivos
+                # Sort directories and files
                 dirs.sort()
                 files.sort()
                 
@@ -557,7 +557,7 @@ class MainWindow(QMainWindow):
                     dir_item.setCheckState(0, Qt.CheckState.Unchecked)
                     path_to_item[dir_path] = dir_item
                 
-                # Adiciona arquivos
+                # Add files
                 for filename in files:
                     if filename.endswith(extensions):
                         filepath = os.path.join(root, filename)
@@ -579,14 +579,14 @@ class MainWindow(QMainWindow):
             tree_widget.setUpdatesEnabled(True)
                         
     def export_marked_irs(self):
-        """Exporta os IRs marcados com checkbox para uma pasta"""
+        """Exports checked IRs to a folder"""
         import os
         import shutil
         
-        # Coleta arquivos marcados
+        # Collect checked files
         marked_files = []
         
-        # Percorre todos os itens da árvore
+        # Iterate through all tree items
         iterator = QTreeWidgetItemIterator(self.ir_tree)
         while iterator.value():
             item = iterator.value()
@@ -600,21 +600,21 @@ class MainWindow(QMainWindow):
             iterator += 1
             
         if not marked_files:
-            QMessageBox.information(self, "Exportar", "Nenhum arquivo selecionado para exportação.")
+            QMessageBox.information(self, "Export", "No files selected for export.")
             return
             
-        # Seleciona pasta de destino
-        dest_folder = QFileDialog.getExistingDirectory(self, "Selecionar Pasta de Destino")
+        # Select destination folder
+        dest_folder = QFileDialog.getExistingDirectory(self, "Select Destination Folder")
         if not dest_folder:
             return
             
-        # Copia arquivos
+        # Copy files
         success_count = 0
         error_count = 0
         
-        # Barra de progresso para cópia
+        # Progress bar for copying
         progress = QProgressBar(self)
-        progress.setWindowTitle("Exportando...")
+        progress.setWindowTitle("Exporting...")
         progress.setWindowModality(Qt.WindowModality.ApplicationModal)
         progress.setMinimum(0)
         progress.setMaximum(len(marked_files))
@@ -625,7 +625,7 @@ class MainWindow(QMainWindow):
                 filename = os.path.basename(src_path)
                 dst_path = os.path.join(dest_folder, filename)
                 
-                # Se arquivo já existe, adiciona sufixo numérico
+                # If file already exists, add numeric suffix
                 if os.path.exists(dst_path):
                     base, ext = os.path.splitext(filename)
                     counter = 1
@@ -636,7 +636,7 @@ class MainWindow(QMainWindow):
                 shutil.copy2(src_path, dst_path)
                 success_count += 1
             except Exception as e:
-                print(f"Erro ao copiar {src_path}: {e}")
+                print(f"Error copying {src_path}: {e}")
                 error_count += 1
             
             progress.setValue(i + 1)
@@ -644,11 +644,11 @@ class MainWindow(QMainWindow):
             
         progress.close()
         
-        msg = f"Exportação concluída!\n\n{success_count} arquivos copiados com sucesso."
+        msg = f"Export complete!\n\n{success_count} files copied successfully."
         if error_count > 0:
-            msg += f"\n{error_count} erros."
+            msg += f"\n{error_count} errors."
             
-        QMessageBox.information(self, "Exportar", msg)
+        QMessageBox.information(self, "Export", msg)
 
     def remove_selected_ir(self):
         self.remove_checked_items(self.ir_tree, self.ir_files)
@@ -657,11 +657,11 @@ class MainWindow(QMainWindow):
         self.remove_checked_items(self.di_tree, self.di_files)
         
     def remove_checked_items(self, tree_widget, file_dict):
-        """Remove itens marcados (checkbox) ou o item selecionado se nada estiver marcado"""
+        """Removes checked items (checkbox) or selected item if nothing is checked"""
         items_to_remove = []
         has_checked_items = False
         
-        # Primeiro, verifica se há itens marcados
+        # First, check if there are checked items
         iterator = QTreeWidgetItemIterator(tree_widget)
         while iterator.value():
             item = iterator.value()
@@ -672,7 +672,7 @@ class MainWindow(QMainWindow):
                 items_to_remove.append(item)
             iterator += 1
             
-        # Se não houver itens marcados, usa a seleção atual (comportamento legado)
+        # If no items are checked, use current selection (legacy behavior)
         if not has_checked_items:
             current = tree_widget.currentItem()
             if current:
@@ -681,16 +681,16 @@ class MainWindow(QMainWindow):
         if not items_to_remove:
             return
             
-        # Processa a remoção
-        # Para remover corretamente, precisamos limpar o dicionário de arquivos primeiro
+        # Process removal
+        # To remove correctly, we need to clear the file dictionary first
         for item in items_to_remove:
             key = item.data(0, Qt.ItemDataRole.UserRole)
             if key:
                 if key.startswith("_folder_:") or key.startswith("_subfolder_:") or key == "_loose_files_":
-                    # É uma pasta, remove recursivamente do dicionário
+                    # It's a folder, remove recursively from dictionary
                     self._remove_folder_content_from_dict(item, file_dict)
                 else:
-                    # É um arquivo
+                    # It's a file
                     if key in file_dict:
                         del file_dict[key]
         
@@ -719,7 +719,7 @@ class MainWindow(QMainWindow):
                 pass
 
     def _remove_folder_content_from_dict(self, folder_item, file_dict):
-        """Remove recursivamente todos os arquivos de uma pasta do dicionário"""
+        """Recursively removes all files from a folder from the dictionary"""""
         for i in range(folder_item.childCount()):
             child = folder_item.child(i)
             key = child.data(0, Qt.ItemDataRole.UserRole)
@@ -736,13 +736,13 @@ class MainWindow(QMainWindow):
         self.ir_files.clear()
         self.ir_tree.clear()
         self.current_ir = None
-        self.ir_info_label.setText("Nenhum IR selecionado")
+        self.ir_info_label.setText("No IR selected")
         
     def clear_di_list(self):
         self.di_files.clear()
         self.di_tree.clear()
         self.current_di = None
-        self.di_info_label.setText("Nenhum DI selecionado")
+        self.di_info_label.setText("No DI selected")
         
     def on_ir_selected(self, current, previous):
         if current:
@@ -756,13 +756,13 @@ class MainWindow(QMainWindow):
                     self.ir_info_label.setText(f"✓ {info}")
                     # Atualiza gráfico
                     self.ir_plot_widget.plot_ir(filepath)
-                    # Preserva a posição ao trocar IR
+                    # Preserve position when changing IR
                     self.process_and_play(preserve_position=True)
             else:
-                # É uma pasta, limpa o gráfico
+                # It's a folder, clear the graph
                 self.ir_plot_widget.clear_plot()
         else:
-            self.ir_info_label.setText("Nenhum IR selecionado")
+            self.ir_info_label.setText("No IR selected")
             self.ir_plot_widget.clear_plot()
             
     def on_di_selected(self, current, previous):
@@ -777,23 +777,23 @@ class MainWindow(QMainWindow):
                     self.di_info_label.setText(f"✓ {info}")
                     self.process_and_play()
             else:
-                # É uma pasta, não faz nada
+                # It's a folder, do nothing
                 pass
         else:
-            self.di_info_label.setText("Nenhum DI selecionado")
+            self.di_info_label.setText("No DI selected")
             
     def process_and_play(self, preserve_position=False):
         if self.current_ir and self.current_di:
-            # Salva posição atual se necessário
+            # Save current position if needed
             self._preserve_position = preserve_position
             if preserve_position and self.audio_engine.has_audio():
                 self._saved_position = self.audio_engine.get_position()
                 self._was_playing = self.is_playing
             else:
                 self._saved_position = 0
-                self._was_playing = True  # Inicia reprodução por padrão
+                self._was_playing = True  # Start playback by default
             
-            # Cancela worker anterior se existir
+            # Cancel previous worker if exists
             if self.convolution_worker is not None and self.convolution_worker.isRunning():
                 self.convolution_worker.terminate()
                 self.convolution_worker.wait()
@@ -809,7 +809,7 @@ class MainWindow(QMainWindow):
             self.convolution_worker.progress.connect(self.on_convolution_progress)
             self.convolution_worker.start()
         else:
-            pass  # Nenhuma ação necessária quando IR ou DI não estão selecionados
+            pass  # No action needed when IR or DI are not selected
                 
     def on_convolution_progress(self, value):
         self.progress_bar.setValue(value)
@@ -818,32 +818,32 @@ class MainWindow(QMainWindow):
         self.progress_bar.setVisible(False)
         
         try:
-            # Para reprodução atual
+            # Stop current playback
             self.audio_engine.stop()
             
-            # Carrega o novo áudio (para definir sample_rate e inicializar)
+            # Load new audio (to set sample_rate and initialize)
             self.audio_engine.load_audio(audio_data, sample_rate)
             
-            # Armazena o áudio raw para reprocessamento (EQ)
+            # Store raw audio for reprocessing (EQ)
             self.header_raw_audio = audio_data
             self.current_sample_rate = sample_rate
             
-            # Aplica EQ inicial (ou flat se tudo zero)
-            # Isso vai sobrescrever o buffer do engine via update_audio
+            # Apply initial EQ (or flat if all zero)
+            # This will overwrite the engine buffer via update_audio
             self.update_equalization(self.equalizer_dialog.current_gains)
             
-            # Atualiza a duração
+            # Update duration
             duration = len(audio_data) / sample_rate
             self.duration_label.setText(self.format_time(duration))
             
-            # Restaura posição se preservando
+            # Restore position if preserving
             if self._preserve_position and self._saved_position > 0:
-                # Garante que a posição não excede a duração do novo áudio
+                # Ensure position doesn't exceed new audio duration
                 seek_pos = min(self._saved_position, duration - 0.1)
                 if seek_pos > 0:
                     self.audio_engine.seek(seek_pos)
             
-            # Inicia reprodução apenas se estava tocando antes ou é nova seleção
+            # Start playback only if it was playing before or it's a new selection
             volume = self.volume_slider.value() / 100.0
             self.audio_engine.set_volume(volume)
             
@@ -857,11 +857,11 @@ class MainWindow(QMainWindow):
                 self.btn_play_pause.setText("▶")
             
         except Exception as e:
-            QMessageBox.warning(self, "Erro", f"Erro ao reproduzir: {str(e)}")
+            QMessageBox.warning(self, "Error", f"Error playing: {str(e)}")
             
     def on_convolution_error(self, error_msg):
         self.progress_bar.setVisible(False)
-        QMessageBox.warning(self, "Erro", f"Erro ao processar: {error_msg}")
+        QMessageBox.warning(self, "Error", f"Error processing: {error_msg}")
                 
     def toggle_play_pause(self):
         if self.audio_engine.has_audio():
@@ -907,10 +907,10 @@ class MainWindow(QMainWindow):
                 
             self.time_label.setText(self.format_time(position))
             
-            # Verifica se terminou
+            # Check if finished
             if not self.audio_engine.is_playing() and self.is_playing:
                 if self.is_looping:
-                    # Reinicia do início
+                    # Restart from beginning
                     self.audio_engine.seek(0)
                     self.audio_engine.play()
                 else:
@@ -935,13 +935,13 @@ class MainWindow(QMainWindow):
         
     def on_mix_changed(self, value):
         self.mix_label.setText(f"{value}%")
-        # Usa debounce para evitar reprocessar a cada movimento do slider
-        # Só processa após 300ms sem movimento
+        # Use debounce to avoid reprocessing on every slider movement
+        # Only process after 300ms without movement
         self.mix_debounce_timer.stop()
         self.mix_debounce_timer.start(300)
         
     def _on_mix_debounced(self):
-        """Chamado após o slider de mix parar de ser movido"""
+        """Called after the mix slider stops being moved"""
         if self.current_ir and self.current_di:
             self.process_and_play(preserve_position=True)
                     
@@ -949,19 +949,19 @@ class MainWindow(QMainWindow):
         current_val = self.mix_slider.value()
         
         if current_val > 0:
-            # Indo para Dry
+            # Going to Dry
             self._last_mix_value = current_val
             self.mix_slider.setValue(0)
             self.btn_dry_wet.setChecked(False)
         else:
-            # Voltando para Wet
+            # Going back to Wet
             target = self._last_mix_value if self._last_mix_value > 0 else 100
             self.mix_slider.setValue(target)
             self.btn_dry_wet.setChecked(True)
 
     def update_equalization(self, gains):
-        """Aplica equalização ao áudio raw atual e atualiza o engine"""
-        # Se EQ estiver desativado ou sem áudio, ignora
+        """Applies equalization to current raw audio and updates the engine"""
+        # If EQ is disabled or no audio, ignore
         if not self.equalizer_dialog.btn_enable.isChecked() or self.header_raw_audio is None:
             return
             
@@ -973,23 +973,23 @@ class MainWindow(QMainWindow):
                 gains
             )
             
-            # Atualiza o motor de áudio (hot-swap)
+            # Update audio engine (hot-swap)
             self.audio_engine.update_audio(processed_audio)
             
         except Exception as e:
-            print(f"Erro na equalização: {e}")
+            print(f"Error in equalization: {e}")
             
     def on_eq_toggled(self, enabled: bool):
-        """Chamado quando o checkbox de ativar/desativar EQ é alterado"""
+        """Called when the enable/disable EQ checkbox is changed"""
         if self.header_raw_audio is None:
             return
             
         if enabled:
-            # Re-aplica a equalização atual
+            # Re-apply current equalization
             self.update_equalization(self.equalizer_dialog.current_gains)
         else:
-            # Bypass: carrega o áudio original (raw)
-            print("EQ Bypass: Carregando áudio original")
+            # Bypass: load original (raw) audio
+            print("EQ Bypass: Loading original audio")
             self.audio_engine.update_audio(self.header_raw_audio)
 
     def format_time(self, seconds):

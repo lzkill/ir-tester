@@ -1,120 +1,122 @@
 # IR Tester 🎸
 
 <div align="center">
+  <img src="packaging/assets/icons/ir-tester.svg" width="128" alt="IR Tester Icon">
+  <br><br>
   <img src="frontend.png" width="800" alt="IR Tester Interface">
   <br>
-  <em>Interface moderna com visualização de frequência em tempo real</em>
+  <em>Modern interface with real-time frequency visualization</em>
 </div>
 
 <br>
 
-Aplicação desktop para Linux para testar Impulse Responses (IR) de caixas acústicas e amplificadores de guitarra com arquivos DI (Direct Input).
+Desktop application for Linux to test Impulse Responses (IR) of guitar cabinets and amplifiers with DI (Direct Input) files.
 
-## Funcionalidades
+## Features
 
-- ✅ **Equalizador Gráfico**: EQ de 10 bandas para moldar o timbre em tempo real
-- ✅ **Adição Inteligente**: Seleção simultânea de arquivos e pastas (botão único)
-- ✅ **Gráfico de Frequências**: Visualização espectral (20Hz-20kHz) do IR selecionado
-- ✅ **Convolução Instantânea**: Processamento em tempo real entre IR e DI
-- ✅ **Mix A/B**:
-    - Slider de Mix Dry/Wet (0% a 100%)
-    - **Toggle Rápido**: Botão D/W para comparação imediata (Dry vs Último Wet)
-- ✅ **Gestão Eficiente**: Exportação em massa e remoção inteligente (arquivos/pastas)
-- ✅ **Interface Dark**: Tema moderno construído com Qt Stylesheets (QSS)
-- ✅ **Controles Completos**: Play, Pause, Loop, Rewind/Forward e Volume
+- ✅ **Graphic Equalizer**: 10-band EQ for shaping tone in real-time
+- ✅ **Smart Addition**: Simultaneous selection of files and folders (single button)
+- ✅ **Frequency Graph**: Spectral visualization (20Hz-20kHz) of selected IR
+- ✅ **Instant Convolution**: Real-time processing between IR and DI
+- ✅ **A/B Mix**:
+    - Dry/Wet Mix Slider (0% to 100%)
+    - **Quick Toggle**: D/W button for immediate comparison (Dry vs Last Wet)
+- ✅ **Efficient Management**: Batch export and smart removal (files/folders)
+- ✅ **Dark Interface**: Modern theme built with Qt Stylesheets (QSS)
+- ✅ **Complete Controls**: Play, Pause, Loop, Rewind/Forward and Volume
 
-## Instalação
+## Installation
 
-### Pré-requisitos
+### Prerequisites
 
 - Python 3.9+
-- PipeWire ou PulseAudio (para reprodução de áudio no Linux)
+- PipeWire or PulseAudio (for audio playback on Linux)
 
-### Instalando as dependências
+### Installing dependencies
 
 ```bash
 cd ir_tester
 pip install -r requirements.txt
 ```
 
-Ou instale manualmente:
+Or install manually:
 
 ```bash
 pip install PyQt6 numpy scipy soundfile sounddevice
 ```
 
-### Dependências de sistema (se necessário)
+### System dependencies (if needed)
 
-No Ubuntu/Debian:
+On Ubuntu/Debian:
 ```bash
 sudo apt install libportaudio2 python3-pyqt6
 ```
 
-No Fedora:
+On Fedora:
 ```bash
 sudo dnf install portaudio python3-pyqt6
 ```
 
-No Arch Linux:
+On Arch Linux:
 ```bash
 sudo pacman -S portaudio python-pyqt6
 ```
 
-## Uso
+## Usage
 
-Execute a aplicação:
+Run the application:
 
 ```bash
 python main.py
 ```
 
-### Como usar:
+### How to use:
 
-1. **Adicionar arquivos**: Clique em "**Adicionar**" em qualquer painel para selecionar múltiplos arquivos ou pastas inteiras simultaneamente.
+1. **Add files**: Click "**Add**" on any panel to select multiple files or entire folders simultaneously.
 
-3. **Testar combinações**: Selecione um IR na lista da esquerda e um DI na lista da direita. A convolução será processada e reproduzida automaticamente.
+3. **Test combinations**: Select an IR from the left list and a DI from the right list. Convolution will be processed and played automatically.
 
-4. **Controles de reprodução**:
+4. **Playback controls**:
    - ▶️/⏸️ - Play/Pause
    - ⏹️ - Stop
-   - ⏮️ - Retroceder 5 segundos
-   - ⏭️ - Avançar 5 segundos
+   - ⏮️ - Rewind 5 seconds
+   - ⏭️ - Forward 5 seconds
 
-5. **Ajustes**:
-   - **Volume**: Ajusta o nível de saída
-   - **Mix (Dry/Wet)**: 0% = som original (DI), 100% = som processado (convolução)
-   - **Equalizador 🎚️**: Equalizador de 10 bandas para moldar o timbre final. Possui botões de **Toggle (ON/OFF)** e **Reset (Flat)**.
+5. **Adjustments**:
+   - **Volume**: Adjusts output level
+   - **Mix (Dry/Wet)**: 0% = original sound (DI), 100% = processed sound (convolution)
+   - **Equalizer 🎚️**: 10-band equalizer for shaping final tone. Has **Toggle (ON/OFF)** and **Reset (Flat)** buttons.
 
-## Formatos suportados
+## Supported formats
 
 ### Impulse Responses (IR)
-- WAV (recomendado)
+- WAV (recommended)
 - AIFF
 - FLAC
 
 ### Direct Input (DI)
-- WAV (recomendado)
+- WAV (recommended)
 - AIFF
 - FLAC
 - MP3
 
-## Dicas
+## Tips
 
-- IRs típicos de cabinet têm entre 50ms e 500ms de duração
-- Para melhores resultados, use arquivos DI com boa qualidade (44.1kHz ou 48kHz, 24-bit)
-- O controle de Mix é útil para comparar rapidamente o som seco com o processado
-- A convolução preserva o decay do IR, então o áudio resultante pode ser um pouco mais longo que o DI original
+- Typical cabinet IRs are between 50ms and 500ms in duration
+- For best results, use high quality DI files (44.1kHz or 48kHz, 24-bit)
+- Mix control is useful for quickly comparing dry and processed sound
+- Convolution preserves the IR decay, so the resulting audio may be slightly longer than the original DI
 
 ## Troubleshooting
 
-### Sem áudio
-- Verifique se o PulseAudio ou PipeWire está funcionando
-- Tente: `systemctl --user restart pipewire pipewire-pulse`
+### No audio
+- Check if PulseAudio or PipeWire is running
+- Try: `systemctl --user restart pipewire pipewire-pulse`
 
-### Erro ao carregar arquivos
-- Verifique se o arquivo não está corrompido
-- Tente converter para WAV usando ffmpeg: `ffmpeg -i input.mp3 output.wav`
+### Error loading files
+- Check if the file is not corrupted
+- Try converting to WAV using ffmpeg: `ffmpeg -i input.mp3 output.wav`
 
-## Licença
+## License
 
 MIT License

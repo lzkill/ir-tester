@@ -4,27 +4,27 @@ import scipy.signal
 
 class Equalizer:
     """
-    Equalizador Gráfico de 10 band com filtros Peaking EQ de 2ª ordem (bi-quad).
+    10-band Graphic Equalizer with 2nd order Peaking EQ filters (bi-quad).
     """
     
-    # Frequências ISO padrão para equalizador de 10 bandas
+    # Standard ISO frequencies for 10-band equalizer
     BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
     
     @staticmethod
     def process_frame(audio_data: np.ndarray, sample_rate: int, gains_db: list[float]) -> np.ndarray:
         """
-        Aplica a equalização a um buffer de áudio inteiro.
-        Usa processamento em cascata de filtros SOS (Second Order Sections) para estabilidade.
+        Applies equalization to an entire audio buffer.
+        Uses cascaded SOS (Second Order Sections) filter processing for stability.
         """
         if len(gains_db) != 10:
-            raise ValueError("São necessários exatamente 10 valores de ganho.")
+            raise ValueError("Exactly 10 gain values are required.")
             
-        # Se todos os ganhos forem zero, retorna o original (bypass eficiente)
+        # If all gains are zero, return original (efficient bypass)
         if all(g == 0 for g in gains_db):
             return audio_data
             
-        # Pré-aloca SOS array (10 bandas, 1 seção por banda, 6 coeficientes por seção)
-        # scipy.signal.sosfilt executa uma cascata de seções de segunda ordem
+        # Pre-allocate SOS array (10 bands, 1 section per band, 6 coefficients per section)
+        # scipy.signal.sosfilt executes a cascade of second order sections
         all_sos = []
         
         for i, freq in enumerate(Equalizer.BANDS):
@@ -32,20 +32,20 @@ class Equalizer:
             if gain == 0:
                 continue
                 
-            # Cria filtro peaking
-            # Q = 1.41 é um valor razoável para 1 oitava de largura de banda aproximada
+            # Create peaking filter
+            # Q = 1.41 is a reasonable value for approximately 1 octave bandwidth
             sos = scipy.signal.iirpeak(freq, Q=2.0, fs=sample_rate)
             
-            # Ajusta o ganho. iirpeak padrão não tem parâmetro de ganho em dB direto no scipy < 1.9 (às vezes)
-            # Mas podemos usar filters designados ou trick de mistura.
-            # Alternativa melhor: Usar design de equalizador paramétrico manual ou shelving.
+            # Adjust gain. iirpeak default doesn't have direct dB gain parameter in scipy < 1.9 (sometimes)
+            # But we can use designated filters or mixing trick.
+            # Better approach: Use manual parametric equalizer or shelving design.
             
-            # Melhor abordagem com scipy.signal.iirpeak:
-            # iirpeak projeta um filtro passa-banda com ganho 0dB no pico (normalizado) e atenuação fora.
-            # Isso não é exatamente um EQ peaking que pode ter ganho positivo ou negativo sobre o sinal original.
+            # Better approach with scipy.signal.iirpeak:
+            # iirpeak designs a bandpass filter with 0dB gain at peak (normalized) and attenuation outside.
+            # This is not exactly a peaking EQ that can have positive or negative gain over original signal.
             
-            # Vamos usar uma implementação direta de Peaking Filter coefficients robusta
-            # para garantir que Boost e Cut funcionem corretamente.
+            # Let's use a direct robust Peaking Filter coefficients implementation
+            # to ensure Boost and Cut work correctly.
             
             sos = Equalizer._design_peaking_filter(freq, gain, Q=1.41, fs=sample_rate)
             all_sos.append(sos)
@@ -53,15 +53,15 @@ class Equalizer:
         if not all_sos:
             return audio_data
             
-        # Concatena todos os coeficientes SOS (n_sections, 6)
+        # Concatenate all SOS coefficients (n_sections, 6)
         cascaded_sos = np.vstack(all_sos)
         
-        # Aplica a filtragem
-        # axis=0 assume áudio mono (N,) ou multicanal channel-last? 
-        # O audio engine usa (N,) float32. sosfilt funciona bem em 1D.
+        # Apply filtering
+        # axis=0 assumes mono audio (N,) or multichannel channel-last?
+        # Audio engine uses (N,) float32. sosfilt works well on 1D.
         processed = scipy.signal.sosfilt(cascaded_sos, audio_data)
         
-        # Limita clipping simples
+        # Simple clipping limiter
         processed = np.clip(processed, -1.0, 1.0)
         
         return processed.astype(np.float32)
@@ -69,8 +69,8 @@ class Equalizer:
     @staticmethod
     def _design_peaking_filter(f0, gain_db, Q, fs):
         """
-        Projeta coeficientes SOS para um filtro Peaking EQ.
-        Fórmulas baseadas no Audio EQ Cookbook de Robert Bristow-Johnson.
+        Designs SOS coefficients for a Peaking EQ filter.
+        Formulas based on Robert Bristow-Johnson's Audio EQ Cookbook.
         """
         A = 10 ** (gain_db / 40.0)
         w0 = 2 * np.pi * f0 / fs
@@ -84,8 +84,8 @@ class Equalizer:
         a1 = -2 * cos_w0
         a2 = 1 - alpha / A
         
-        # Normaliza por a0 e retorna formato SOS: [b0, b1, b2, a0, a1, a2] -> [b0, b1, b2, 1, a1/a0, a2/a0]
-        # O scipy sosfilt espera [b0, b1, b2, a0, a1, a2], mas é bom normalizar a0 para 1 para estabilidade numérica
+        # Normalize by a0 and return SOS format: [b0, b1, b2, a0, a1, a2] -> [b0, b1, b2, 1, a1/a0, a2/a0]
+        # scipy sosfilt expects [b0, b1, b2, a0, a1, a2], but normalizing a0 to 1 is good for numerical stability
         
         sos = np.array([b0/a0, b1/a0, b2/a0, 1.0, a1/a0, a2/a0])
         return sos

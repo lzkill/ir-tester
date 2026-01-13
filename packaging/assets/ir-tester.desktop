@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=IR Tester
+GenericName=Impulse Response Tester
+Comment=Test guitar cabinet and amplifier IRs with DI files
+Exec=/opt/ir-tester/bin/ir-tester
+Icon=ir-tester
+Terminal=false
+Type=Application
+Categories=Audio;AudioVideo;Music;
+Keywords=guitar;impulse;response;ir;cabinet;amplifier;convolution;audio;
+StartupWMClass=ir-tester
+MimeType=audio/x-wav;audio/wav;audio/flac;audio/aiff;

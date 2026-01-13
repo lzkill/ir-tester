@@ -1,21 +1,30 @@
 #!/usr/bin/env python3
 """
-IR Tester - Aplicação para testar Impulse Responses com arquivos DI
+IR Tester - Application for testing Impulse Responses with DI files
 """
 
 import sys
+from pathlib import Path
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
 from ui.main_window import MainWindow
 
 
+def get_version():
+    """Reads version from the VERSION file."""
+    version_file = Path(__file__).parent / "VERSION"
+    if version_file.exists():
+        return version_file.read_text().strip()
+    return "0.0.0"
+
+
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("IR Tester")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion(get_version())
     
-    # Estilo escuro para a aplicação
-    # Estilo moderno e escuro
+    # Dark style for the application
+    # Modern dark theme
     app.setStyleSheet("""
         QMainWindow, QWidget {
             background-color: #121212;
@@ -74,7 +83,7 @@ def main():
             border: 1px solid #2d2d2d;
         }
         
-        /* Botões de Ação Principal (Play) */
+        /* Primary Action Buttons (Play) */
         QPushButton#primary_action {
             background-color: #107c10;
             border: 1px solid #0e6b0e;

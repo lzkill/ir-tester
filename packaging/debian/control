@@ -1,0 +1,19 @@
+Package: ir-tester
+Version: ${VERSION}
+Section: sound
+Priority: optional
+Architecture: amd64
+Depends: libportaudio2, libsndfile1, python3 (>= 3.9), libxcb-cursor0
+Maintainer: IR Tester Dev <luizkill@gmail.com>
+Description: Impulse Response Tester for Guitar
+ Desktop application for testing Impulse Responses (IR) of guitar
+ cabinets and amplifiers with Direct Input (DI) files.
+ .
+ Features:
+  - 10-band graphic equalizer
+  - Real-time frequency visualization (20Hz-20kHz)
+  - Instant convolution processing
+  - Mix A/B with Dry/Wet slider
+  - Dark modern interface
+  - Complete playback controls
+Homepage: https://github.com/lzkill/ir-tester

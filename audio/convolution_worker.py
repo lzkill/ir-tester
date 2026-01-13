@@ -1,5 +1,5 @@
 """
-Worker thread para processamento de convolução
+Worker thread for convolution processing
 """
 
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -8,10 +8,10 @@ import numpy as np
 
 class ConvolutionWorker(QThread):
     """
-    Thread separada para processar convolução sem bloquear a UI
+    Separate thread for processing convolution without blocking UI
     """
     
-    # Sinais
+    # Signals
     finished = pyqtSignal(np.ndarray, int)  # audio_data, sample_rate
     error = pyqtSignal(str)
     progress = pyqtSignal(int)
@@ -22,7 +22,7 @@ class ConvolutionWorker(QThread):
         self.wet_mix = wet_mix
         
     def run(self):
-        """Executa o processamento em thread separada"""
+        """Executes processing in separate thread"""
         try:
             self.progress.emit(10)
             
@@ -33,7 +33,7 @@ class ConvolutionWorker(QThread):
             if audio_data is not None:
                 self.finished.emit(audio_data, sample_rate)
             else:
-                self.error.emit("Erro ao processar convolução - resultado vazio")
+                self.error.emit("Error processing convolution - empty result")
                 
         except Exception as e:
             self.error.emit(str(e))

@@ -1,5 +1,5 @@
 """
-Módulo de processamento de convolução para IRs
+Convolution processing module for IRs
 """
 
 import numpy as np
@@ -9,7 +9,7 @@ from scipy import signal
 
 class ConvolutionProcessor:
     """
-    Processa convolução entre arquivos DI e IRs
+    Processes convolution between DI files and IRs
     """
     
     def __init__(self):
@@ -51,7 +51,7 @@ class ConvolutionProcessor:
         except Exception as e:
             self.ir_data = None
             self.ir_sample_rate = None
-            raise Exception(f"Erro ao carregar IR: {str(e)}")
+            raise Exception(f"Error loading IR: {str(e)}")
             
     def load_di(self, filepath: str) -> str:
         """
@@ -63,14 +63,14 @@ class ConvolutionProcessor:
         try:
             data, sample_rate = sf.read(filepath, dtype='float32')
             
-            # Converte para mono se necessário
+            # Convert to mono if necessary
             if len(data.shape) > 1:
                 data = np.mean(data, axis=1)
                 
             info_obj = sf.info(filepath)
             bit_depth = info_obj.subtype
             
-            # Normaliza
+            # Normalize
             max_val = np.max(np.abs(data))
             if max_val > 0:
                 data = data / max_val
@@ -84,7 +84,7 @@ class ConvolutionProcessor:
         except Exception as e:
             self.di_data = None
             self.di_sample_rate = None
-            raise Exception(f"Erro ao carregar DI: {str(e)}")
+            raise Exception(f"Error loading DI: {str(e)}")
             
     def process(self, wet_mix: float = 1.0) -> tuple:
         """
@@ -100,30 +100,30 @@ class ConvolutionProcessor:
             return None, None
             
         try:
-            # Reamostra o IR se necessário para combinar com o DI
+            # Resample IR if necessary to match DI
             ir_resampled = self.ir_data
             if self.ir_sample_rate != self.di_sample_rate:
-                # Calcula o novo número de samples
+                # Calculate new number of samples
                 num_samples = int(len(self.ir_data) * self.di_sample_rate / self.ir_sample_rate)
                 ir_resampled = signal.resample(self.ir_data, num_samples)
                 
-            # Realiza a convolução usando FFT para melhor performance
-            # fftconvolve é muito mais rápido para sinais longos
+            # Perform convolution using FFT for better performance
+            # fftconvolve is much faster for long signals
             wet_signal = signal.fftconvolve(self.di_data, ir_resampled, mode='full')
             
-            # Trunca para o tamanho do DI original (ou um pouco mais para o decay do IR)
-            # Adiciona o tamanho do IR para preservar o decay
+            # Truncate to original DI size (or a bit more for IR decay)
+            # Add IR size to preserve decay
             output_length = len(self.di_data) + len(ir_resampled) - 1
             wet_signal = wet_signal[:output_length]
             
-            # Normaliza o sinal wet
+            # Normalize wet signal
             max_wet = np.max(np.abs(wet_signal))
             if max_wet > 0:
                 wet_signal = wet_signal / max_wet
                 
-            # Aplica o mix dry/wet
+            # Apply dry/wet mix
             if wet_mix < 1.0:
-                # Estende o dry signal para combinar com o wet
+                # Extend dry signal to match wet
                 dry_signal = np.zeros(len(wet_signal))
                 dry_signal[:len(self.di_data)] = self.di_data
                 
@@ -131,12 +131,12 @@ class ConvolutionProcessor:
             else:
                 result = wet_signal
                 
-            # Normaliza o resultado final
+            # Normalize final result
             max_result = np.max(np.abs(result))
             if max_result > 0:
-                result = result / max_result * 0.9  # Deixa headroom
+                result = result / max_result * 0.9  # Leave headroom
                 
-            # Converte para float32
+            # Convert to float32
             result = result.astype(np.float32)
             
             self.last_result = result
@@ -145,11 +145,11 @@ class ConvolutionProcessor:
             return result, self.di_sample_rate
             
         except Exception as e:
-            print(f"Erro na convolução: {str(e)}")
+            print(f"Error in convolution: {str(e)}")
             import traceback
             traceback.print_exc()
             return None, None
             
     def get_last_result(self) -> tuple:
-        """Retorna o último resultado processado"""
+        """Returns the last processed result"""
         return self.last_result, self.last_sample_rate
