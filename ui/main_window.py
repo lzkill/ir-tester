@@ -24,6 +24,8 @@ import scipy.fft
 from audio.audio_engine import AudioEngine
 from audio.convolution import ConvolutionProcessor
 from audio.convolution_worker import ConvolutionWorker
+from audio.equalizer import Equalizer
+from ui.equalizer_dialog import EqualizerDialog
 
 
 class IRPlotWidget(QWidget):
@@ -122,6 +124,14 @@ class MainWindow(QMainWindow):
         # Inicializa os componentes de áudio
         self.audio_engine = AudioEngine()
         self.convolution_processor = ConvolutionProcessor()
+        self.convolution_worker = None
+        
+        # Estado para Equalizador
+        self.header_raw_audio = None # Armazena áudio sem EQ para processamento
+        self.current_sample_rate = 44100
+        self.equalizer_dialog = EqualizerDialog(self)
+        self.equalizer_dialog.gains_changed.connect(self.update_equalization)
+        self.equalizer_dialog.eq_toggled.connect(self.on_eq_toggled)
         
         # Listas de arquivos
         self.ir_files = {}  # {display_name: full_path}
@@ -348,6 +358,12 @@ class MainWindow(QMainWindow):
         self.volume_label = QLabel("80%")
         self.volume_label.setMinimumWidth(40)
         layout.addWidget(self.volume_label)
+        
+        # Botão Equalizer
+        self.btn_eq = QPushButton("Equalizer 🎚️")
+        self.btn_eq.setToolTip("Abrir Equalizador Gráfico")
+        self.btn_eq.clicked.connect(self.equalizer_dialog.show)
+        layout.addWidget(self.btn_eq)
         
         layout.addStretch()
         
@@ -805,8 +821,16 @@ class MainWindow(QMainWindow):
             # Para reprodução atual
             self.audio_engine.stop()
             
-            # Carrega o novo áudio
+            # Carrega o novo áudio (para definir sample_rate e inicializar)
             self.audio_engine.load_audio(audio_data, sample_rate)
+            
+            # Armazena o áudio raw para reprocessamento (EQ)
+            self.header_raw_audio = audio_data
+            self.current_sample_rate = sample_rate
+            
+            # Aplica EQ inicial (ou flat se tudo zero)
+            # Isso vai sobrescrever o buffer do engine via update_audio
+            self.update_equalization(self.equalizer_dialog.current_gains)
             
             # Atualiza a duração
             duration = len(audio_data) / sample_rate
@@ -934,6 +958,39 @@ class MainWindow(QMainWindow):
             target = self._last_mix_value if self._last_mix_value > 0 else 100
             self.mix_slider.setValue(target)
             self.btn_dry_wet.setChecked(True)
+
+    def update_equalization(self, gains):
+        """Aplica equalização ao áudio raw atual e atualiza o engine"""
+        # Se EQ estiver desativado ou sem áudio, ignora
+        if not self.equalizer_dialog.btn_enable.isChecked() or self.header_raw_audio is None:
+            return
+            
+        try:
+            # Processa o áudio raw com os ganhos atuais
+            processed_audio = Equalizer.process_frame(
+                self.header_raw_audio, 
+                self.current_sample_rate, 
+                gains
+            )
+            
+            # Atualiza o motor de áudio (hot-swap)
+            self.audio_engine.update_audio(processed_audio)
+            
+        except Exception as e:
+            print(f"Erro na equalização: {e}")
+            
+    def on_eq_toggled(self, enabled: bool):
+        """Chamado quando o checkbox de ativar/desativar EQ é alterado"""
+        if self.header_raw_audio is None:
+            return
+            
+        if enabled:
+            # Re-aplica a equalização atual
+            self.update_equalization(self.equalizer_dialog.current_gains)
+        else:
+            # Bypass: carrega o áudio original (raw)
+            print("EQ Bypass: Carregando áudio original")
+            self.audio_engine.update_audio(self.header_raw_audio)
 
     def format_time(self, seconds):
         minutes = int(seconds // 60)

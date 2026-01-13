@@ -32,6 +32,15 @@ class AudioEngine:
         """Verifica se há áudio carregado"""
         return self.audio_data is not None
         
+    def update_audio(self, audio_data: np.ndarray):
+        """Atualiza o buffer de áudio em tempo real (hot-swap)"""
+        # Garante array contíguo e float32
+        data = np.ascontiguousarray(audio_data, dtype=np.float32)
+        if self._is_playing:
+            self.audio_data = data
+        else:
+            self.audio_data = data
+
     def play(self):
         """Inicia a reprodução"""
         if not self.has_audio():
@@ -49,35 +58,46 @@ class AudioEngine:
         self._is_playing = True
         self._is_paused = False
         
-        # Referências locais para o callback (evita problemas com self)
-        audio_data = self.audio_data
-        audio_len = len(self.audio_data)
-        
         def callback(outdata, frames, time, status):
-            if status:
-                print(f"Audio status: {status}")
+            try:
+                if status:
+                    print(f"Audio status: {status}")
+                    
+                if self._is_paused or not self._is_playing:
+                    outdata.fill(0)
+                    return
                 
-            if self._is_paused or not self._is_playing:
+                current_audio = self.audio_data
+                if current_audio is None:
+                    outdata.fill(0)
+                    return
+
+                audio_len = len(current_audio)
+                pos = self.position
+                end_pos = pos + frames
+                
+                if pos >= audio_len:
+                    outdata.fill(0)
+                    self._is_playing = False
+                    raise sd.CallbackStop()
+                    
+                if end_pos > audio_len:
+                    remaining = audio_len - pos
+                    chunk = current_audio[pos:audio_len]
+                    if len(chunk) > 0:
+                         outdata[:remaining, 0] = chunk * self.volume
+                    outdata[remaining:, 0] = 0
+                    self.position = audio_len
+                else:
+                    chunk = current_audio[pos:end_pos]
+                    outdata[:, 0] = chunk * self.volume
+                    self.position = end_pos
+                    
+            except Exception as e:
+                print(f"Erro no callback de áudio: {e}")
                 outdata.fill(0)
-                return
-                
-            pos = self.position
-            end_pos = pos + frames
-            
-            if pos >= audio_len:
-                outdata.fill(0)
-                self._is_playing = False
-                raise sd.CallbackStop()
-                
-            if end_pos > audio_len:
-                # Preenche com o áudio restante e zeros
-                remaining = audio_len - pos
-                outdata[:remaining, 0] = audio_data[pos:audio_len] * self.volume
-                outdata[remaining:, 0] = 0
-                self.position = audio_len
-            else:
-                outdata[:, 0] = audio_data[pos:end_pos] * self.volume
-                self.position = end_pos
+                # Opcional: Parar reprodução em caso de erro crítico
+                # raise sd.CallbackAbort()
                 
         try:
             self.stream = sd.OutputStream(

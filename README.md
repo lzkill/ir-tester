@@ -12,21 +12,16 @@ Aplicação desktop para Linux para testar Impulse Responses (IR) de caixas acú
 
 ## Funcionalidades
 
-- ✅ **Adição Inteligente**: Seleção simultânea de arquivos e pastas (mix selection)
-- ✅ **Gráfico de Frequências**: Visualização espectral (20Hz-20kHz) em tempo real do IR selecionado
-- ✅ **Carregamento Flexível**:
-    - Múltiplos arquivos IR (WAV, AIFF, FLAC)
-    - Múltiplos arquivos DI (WAV, AIFF, FLAC, MP3)
-    - Pastas inteiras com recursividade
-- ✅ **Convolução Instantânea**: Processamento em real-time entre IR e DI
+- ✅ **Equalizador Gráfico**: EQ de 10 bandas para moldar o timbre em tempo real
+- ✅ **Adição Inteligente**: Seleção simultânea de arquivos e pastas (botão único)
+- ✅ **Gráfico de Frequências**: Visualização espectral (20Hz-20kHz) do IR selecionado
+- ✅ **Convolução Instantânea**: Processamento em tempo real entre IR e DI
 - ✅ **Mix A/B**:
     - Slider de Mix Dry/Wet (0% a 100%)
     - **Toggle Rápido**: Botão D/W para comparação imediata (Dry vs Último Wet)
-- ✅ **Gestão Eficiente**:
-    - Exportação em massa de IRs marcados
-    - Remoção inteligente (arquivos soltos ou pastas inteiras)
-- ✅ **Controles Completos**: Play, Pause, Loop, Rewind/Forward e Volume
+- ✅ **Gestão Eficiente**: Exportação em massa e remoção inteligente (arquivos/pastas)
 - ✅ **Interface Dark**: Tema moderno construído com Qt Stylesheets (QSS)
+- ✅ **Controles Completos**: Play, Pause, Loop, Rewind/Forward e Volume
 
 ## Instalação
 
@@ -75,9 +70,7 @@ python main.py
 
 ### Como usar:
 
-1. **Adicionar IRs**: Clique em "Adicionar IR" para selecionar arquivos individuais ou "Adicionar Pasta" para carregar uma pasta inteira de IRs.
-
-2. **Adicionar DIs**: Da mesma forma, adicione seus arquivos DI (gravações secas de guitarra).
+1. **Adicionar arquivos**: Clique em "**Adicionar**" em qualquer painel para selecionar múltiplos arquivos ou pastas inteiras simultaneamente.
 
 3. **Testar combinações**: Selecione um IR na lista da esquerda e um DI na lista da direita. A convolução será processada e reproduzida automaticamente.
 
@@ -88,8 +81,9 @@ python main.py
    - ⏭️ - Avançar 5 segundos
 
 5. **Ajustes**:
-   - **Volume**: Ajusta o volume de saída
+   - **Volume**: Ajusta o nível de saída
    - **Mix (Dry/Wet)**: 0% = som original (DI), 100% = som processado (convolução)
+   - **Equalizador 🎚️**: Equalizador de 10 bandas para moldar o timbre final. Possui botões de **Toggle (ON/OFF)** e **Reset (Flat)**.
 
 ## Formatos suportados
 
