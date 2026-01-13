@@ -5,10 +5,12 @@ Main Window da aplicação IR Tester
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTreeWidget, QTreeWidgetItem, QPushButton, QLabel, QSlider, QGroupBox,
-    QFileDialog, QSplitter, QFrame, QMessageBox, QProgressBar
+    QFileDialog, QSplitter, QFrame, QMessageBox, QProgressBar, QTreeWidgetItemIterator, QApplication,
+    QDialog, QTreeView, QAbstractItemView, QHeaderView, QListView
 )
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QIcon, QFont
+from PyQt6.QtCore import Qt, QTimer, QDir
+from PyQt6.QtGui import QIcon, QFont, QAction
+from PyQt6.QtWidgets import QMenu, QStyle
 
 from audio.audio_engine import AudioEngine
 from audio.convolution import ConvolutionProcessor
@@ -38,6 +40,7 @@ class MainWindow(QMainWindow):
         self._preserve_position = False
         self._saved_position = 0
         self._was_playing = True
+        self._last_mix_value = 100  # Valor padrao para o toggle
         
         # Timer para debounce do mix slider
         self.mix_debounce_timer = QTimer()
@@ -108,13 +111,14 @@ class MainWindow(QMainWindow):
         # Botões de controle
         btn_layout = QHBoxLayout()
         
-        self.btn_add_ir = QPushButton(" ＋  Arquivo")
-        self.btn_add_ir_folder = QPushButton(" 📁  Pasta")
+        self.btn_add_ir = QPushButton(" ＋  Adicionar")
+        self.btn_add_ir.clicked.connect(lambda: self.open_unified_add_dialog(is_ir=True))
+        self.btn_export_marked = QPushButton(" ➱  Exportar")
         self.btn_remove_ir = QPushButton(" ✕  Remover")
         self.btn_clear_ir = QPushButton(" ⟲  Limpar")
         
         btn_layout.addWidget(self.btn_add_ir)
-        btn_layout.addWidget(self.btn_add_ir_folder)
+        btn_layout.addWidget(self.btn_export_marked)
         btn_layout.addWidget(self.btn_remove_ir)
         btn_layout.addWidget(self.btn_clear_ir)
         
@@ -140,13 +144,12 @@ class MainWindow(QMainWindow):
         # Botões de controle
         btn_layout = QHBoxLayout()
         
-        self.btn_add_di = QPushButton(" ＋  Arquivo")
-        self.btn_add_di_folder = QPushButton(" 📁  Pasta")
+        self.btn_add_di = QPushButton(" ＋  Adicionar")
+        self.btn_add_di.clicked.connect(lambda: self.open_unified_add_dialog(is_ir=False))
         self.btn_remove_di = QPushButton(" ✕  Remover")
         self.btn_clear_di = QPushButton(" ⟲  Limpar")
         
         btn_layout.addWidget(self.btn_add_di)
-        btn_layout.addWidget(self.btn_add_di_folder)
         btn_layout.addWidget(self.btn_remove_di)
         btn_layout.addWidget(self.btn_clear_di)
         
@@ -205,15 +208,7 @@ class MainWindow(QMainWindow):
         self.btn_play_pause = QPushButton("▶")
         self.btn_play_pause.setToolTip("Play/Pause")
         self.btn_play_pause.setMinimumSize(70, 50)
-        self.btn_play_pause.setStyleSheet("""
-            QPushButton {
-                background-color: #107c10;
-                font-size: 20px;
-            }
-            QPushButton:hover {
-                background-color: #0e6b0e;
-            }
-        """)
+        self.btn_play_pause.setObjectName("primary_action")
         btn_layout.addWidget(self.btn_play_pause)
         
         self.btn_forward = QPushButton("⏩")
@@ -227,21 +222,7 @@ class MainWindow(QMainWindow):
         self.btn_loop.setMinimumSize(50, 50)
         self.btn_loop.setCheckable(True)
         self.btn_loop.setChecked(True)
-        self.btn_loop.setStyleSheet("""
-            QPushButton {
-                background-color: #107c10;
-                font-size: 18px;
-            }
-            QPushButton:checked {
-                background-color: #107c10;
-            }
-            QPushButton:!checked {
-                background-color: #4d4d4d;
-            }
-            QPushButton:hover {
-                background-color: #0e6b0e;
-            }
-        """)
+        self.btn_loop.setObjectName("primary_action")
         btn_layout.addWidget(self.btn_loop)
         
         btn_layout.addStretch()
@@ -270,7 +251,7 @@ class MainWindow(QMainWindow):
         layout.addStretch()
         
         # Mix Dry/Wet
-        mix_label = QLabel("� Mix (Dry/Wet):")
+        mix_label = QLabel("🎛️ Mix (Dry/Wet):")
         layout.addWidget(mix_label)
         
         self.mix_slider = QSlider(Qt.Orientation.Horizontal)
@@ -283,19 +264,27 @@ class MainWindow(QMainWindow):
         self.mix_label = QLabel("100%")
         self.mix_label.setMinimumWidth(40)
         layout.addWidget(self.mix_label)
+
+        # Botão Dry/Wet Toggle
+        self.btn_dry_wet = QPushButton("D/W")
+        self.btn_dry_wet.setToolTip("Alternar entre Dry (0%) e o último valor Wet")
+        self.btn_dry_wet.setCheckable(True)
+        self.btn_dry_wet.setChecked(True)
+        self.btn_dry_wet.setMinimumWidth(60)
+        self.btn_dry_wet.clicked.connect(self.toggle_dry_wet)
+        layout.addWidget(self.btn_dry_wet)
         
         return frame
         
     def connect_signals(self):
         # Botões de IR
-        self.btn_add_ir.clicked.connect(self.add_ir_files)
-        self.btn_add_ir_folder.clicked.connect(self.add_ir_folder)
+        # self.btn_add_ir e self.btn_add_ir_menu são conectados via menu/actions
+        self.btn_export_marked.clicked.connect(self.export_marked_irs)
         self.btn_remove_ir.clicked.connect(self.remove_selected_ir)
         self.btn_clear_ir.clicked.connect(self.clear_ir_list)
         
         # Botões de DI
-        self.btn_add_di.clicked.connect(self.add_di_files)
-        self.btn_add_di_folder.clicked.connect(self.add_di_folder)
+        # Conexões via menu
         self.btn_remove_di.clicked.connect(self.remove_selected_di)
         self.btn_clear_di.clicked.connect(self.clear_di_list)
         
@@ -321,33 +310,56 @@ class MainWindow(QMainWindow):
     def on_loop_toggled(self, checked):
         self.is_looping = checked
         
-    def add_ir_files(self):
-        files, _ = QFileDialog.getOpenFileNames(
-            self,
-            "Selecionar arquivos IR",
-            "",
-            "Arquivos de áudio (*.wav *.WAV *.aiff *.AIFF *.flac *.FLAC);;Todos os arquivos (*)"
-        )
-        self.add_files_to_tree(files, self.ir_files, self.ir_tree)
+    def open_unified_add_dialog(self, is_ir=True):
+        """Abre o diálogo universal para adicionar arquivos e pastas usando QFileDialog modificado"""
+        dialog = QFileDialog(self, "Adicionar IRs" if is_ir else "Adicionar DIs")
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOption(QFileDialog.Option.DontUseNativeDialog, True)
         
-    def add_ir_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Selecionar pasta com IRs")
-        if folder:
-            self.add_folder_to_tree(folder, self.ir_files, self.ir_tree)
+        # Define filtros
+        dialog.setNameFilters(["Arquivos de áudio (*.wav *.mp3 *.flac *.aiff *.ogg)", "Todos os arquivos (*)"])
+        
+        # HACK: Encontra as views internas (ListView e TreeView) e permite seleção múltipla
+        # Isso permite selecionar arquivos E pastas ao mesmo tempo na interface do Qt
+        views = dialog.findChildren((QListView, QTreeView))
+        for view in views:
+            view.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
             
-    def add_di_files(self):
-        files, _ = QFileDialog.getOpenFileNames(
-            self,
-            "Selecionar arquivos DI",
-            "",
-            "Arquivos de áudio (*.wav *.WAV *.aiff *.AIFF *.flac *.FLAC *.mp3 *.MP3);;Todos os arquivos (*)"
-        )
-        self.add_files_to_tree(files, self.di_files, self.di_tree)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            paths = dialog.selectedFiles()
+            self.process_added_paths(paths, is_ir)
+            
+    def process_added_paths(self, paths, is_ir=True):
+        """Processa a lista de caminhos adicionados (arquivos ou pastas)"""
+        import os
         
-    def add_di_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Selecionar pasta com DIs")
-        if folder:
-            self.add_folder_to_tree(folder, self.di_files, self.di_tree)
+        # Define qual conjunto de funções usar
+        # Define qual conjunto de dados usar
+        if is_ir:
+            tree_widget = self.ir_tree
+            file_dict = self.ir_files
+        else:
+            tree_widget = self.di_tree
+            file_dict = self.di_files
+            
+        # Processa cada caminho
+        for path in paths:
+            if os.path.isfile(path):
+                # Se for arquivo, verifica extensão
+                ext = os.path.splitext(path)[1].lower()
+                if ext in ['.wav', '.mp3', '.flac', '.aiff', '.ogg']:
+                    if is_ir:
+                        self.add_files_to_tree([path], self.ir_files, self.ir_tree)
+                    else:
+                        self.add_files_to_tree([path], self.di_files, self.di_tree)
+            elif os.path.isdir(path):
+                # Se for pasta, adiciona recursivamente
+                if is_ir:
+                    self.add_folder_to_tree(path, self.ir_files, self.ir_tree)
+                else:
+                    self.add_folder_to_tree(path, self.di_files, self.di_tree)
+
+
             
     def add_files_to_tree(self, files, file_dict, tree_widget):
         """Adiciona arquivos individuais à árvore (sem pasta pai)"""
@@ -374,11 +386,13 @@ class MainWindow(QMainWindow):
                         loose_files_item.setText(0, "📄 Arquivos Soltos")
                         loose_files_item.setData(0, Qt.ItemDataRole.UserRole, "_loose_files_")
                         loose_files_item.setExpanded(True)
+                        loose_files_item.setCheckState(0, Qt.CheckState.Unchecked)
                     
                     # Adiciona o arquivo como filho
                     file_item = QTreeWidgetItem(loose_files_item)
                     file_item.setText(0, filename)
                     file_item.setData(0, Qt.ItemDataRole.UserRole, key)
+                    file_item.setCheckState(0, Qt.CheckState.Unchecked)
         finally:
             tree_widget.setUpdatesEnabled(True)
                 
@@ -394,6 +408,7 @@ class MainWindow(QMainWindow):
         folder_item.setText(0, f"📂 {folder_name}")
         folder_item.setData(0, Qt.ItemDataRole.UserRole, f"_folder_:{folder}")
         folder_item.setExpanded(True)
+        folder_item.setCheckState(0, Qt.CheckState.Unchecked)
         
         tree_widget.setUpdatesEnabled(False)
         try:
@@ -422,6 +437,7 @@ class MainWindow(QMainWindow):
                     dir_item = QTreeWidgetItem(parent_item)
                     dir_item.setText(0, f"📁 {dirname}")
                     dir_item.setData(0, Qt.ItemDataRole.UserRole, f"_subfolder_:{dir_path}")
+                    dir_item.setCheckState(0, Qt.CheckState.Unchecked)
                     path_to_item[dir_path] = dir_item
                 
                 # Adiciona arquivos
@@ -441,68 +457,163 @@ class MainWindow(QMainWindow):
                             file_item = QTreeWidgetItem(parent_item)
                             file_item.setText(0, filename)
                             file_item.setData(0, Qt.ItemDataRole.UserRole, key)
+                            file_item.setCheckState(0, Qt.CheckState.Unchecked)
         finally:
             tree_widget.setUpdatesEnabled(True)
                         
-    def remove_selected_ir(self):
-        current = self.ir_tree.currentItem()
-        if current:
-            key = current.data(0, Qt.ItemDataRole.UserRole)
-            if key and not key.startswith("_folder_:") and not key.startswith("_subfolder_:") and key != "_loose_files_":
-                # É um arquivo, remove
-                if key in self.ir_files:
-                    del self.ir_files[key]
-                parent = current.parent()
-                if parent:
-                    parent.removeChild(current)
-                else:
-                    index = self.ir_tree.indexOfTopLevelItem(current)
-                    self.ir_tree.takeTopLevelItem(index)
-            elif key and (key.startswith("_folder_:") or key.startswith("_subfolder_:") or key == "_loose_files_"):
-                # É uma pasta, remove todos os arquivos dela
-                self._remove_folder_item(current, self.ir_files)
-                parent = current.parent()
-                if parent:
-                    parent.removeChild(current)
-                else:
-                    index = self.ir_tree.indexOfTopLevelItem(current)
-                    self.ir_tree.takeTopLevelItem(index)
+    def export_marked_irs(self):
+        """Exporta os IRs marcados com checkbox para uma pasta"""
+        import os
+        import shutil
+        
+        # Coleta arquivos marcados
+        marked_files = []
+        
+        # Percorre todos os itens da árvore
+        iterator = QTreeWidgetItemIterator(self.ir_tree)
+        while iterator.value():
+            item = iterator.value()
+            if item.checkState(0) == Qt.CheckState.Checked:
+                key = item.data(0, Qt.ItemDataRole.UserRole)
+                # Verifica se é um arquivo (e não pasta)
+                if key and not key.startswith("_folder_:") and not key.startswith("_subfolder_:") and key != "_loose_files_":
+                    filepath = self.ir_files.get(key)
+                    if filepath and os.path.exists(filepath):
+                        marked_files.append(filepath)
+            iterator += 1
             
+        if not marked_files:
+            QMessageBox.information(self, "Exportar", "Nenhum arquivo selecionado para exportação.")
+            return
+            
+        # Seleciona pasta de destino
+        dest_folder = QFileDialog.getExistingDirectory(self, "Selecionar Pasta de Destino")
+        if not dest_folder:
+            return
+            
+        # Copia arquivos
+        success_count = 0
+        error_count = 0
+        
+        # Barra de progresso para cópia
+        progress = QProgressBar(self)
+        progress.setWindowTitle("Exportando...")
+        progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.setMinimum(0)
+        progress.setMaximum(len(marked_files))
+        progress.show()
+        
+        for i, src_path in enumerate(marked_files):
+            try:
+                filename = os.path.basename(src_path)
+                dst_path = os.path.join(dest_folder, filename)
+                
+                # Se arquivo já existe, adiciona sufixo numérico
+                if os.path.exists(dst_path):
+                    base, ext = os.path.splitext(filename)
+                    counter = 1
+                    while os.path.exists(dst_path):
+                        dst_path = os.path.join(dest_folder, f"{base}_{counter}{ext}")
+                        counter += 1
+                
+                shutil.copy2(src_path, dst_path)
+                success_count += 1
+            except Exception as e:
+                print(f"Erro ao copiar {src_path}: {e}")
+                error_count += 1
+            
+            progress.setValue(i + 1)
+            QApplication.processEvents()
+            
+        progress.close()
+        
+        msg = f"Exportação concluída!\n\n{success_count} arquivos copiados com sucesso."
+        if error_count > 0:
+            msg += f"\n{error_count} erros."
+            
+        QMessageBox.information(self, "Exportar", msg)
+
+    def remove_selected_ir(self):
+        self.remove_checked_items(self.ir_tree, self.ir_files)
+        
     def remove_selected_di(self):
-        current = self.di_tree.currentItem()
-        if current:
-            key = current.data(0, Qt.ItemDataRole.UserRole)
-            if key and not key.startswith("_folder_:") and not key.startswith("_subfolder_:") and key != "_loose_files_":
-                # É um arquivo, remove
-                if key in self.di_files:
-                    del self.di_files[key]
-                parent = current.parent()
-                if parent:
-                    parent.removeChild(current)
+        self.remove_checked_items(self.di_tree, self.di_files)
+        
+    def remove_checked_items(self, tree_widget, file_dict):
+        """Remove itens marcados (checkbox) ou o item selecionado se nada estiver marcado"""
+        items_to_remove = []
+        has_checked_items = False
+        
+        # Primeiro, verifica se há itens marcados
+        iterator = QTreeWidgetItemIterator(tree_widget)
+        while iterator.value():
+            item = iterator.value()
+            if item.checkState(0) == Qt.CheckState.Checked:
+                has_checked_items = True
+                # Adiciona apenas itens de nível superior na seleção para evitar problemas ao remover pais e filhos
+                # Mas aqui precisamos ser cuidadosos. Vamos coletar todos e processar depois.
+                items_to_remove.append(item)
+            iterator += 1
+            
+        # Se não houver itens marcados, usa a seleção atual (comportamento legado)
+        if not has_checked_items:
+            current = tree_widget.currentItem()
+            if current:
+                items_to_remove.append(current)
+        
+        if not items_to_remove:
+            return
+            
+        # Processa a remoção
+        # Para remover corretamente, precisamos limpar o dicionário de arquivos primeiro
+        for item in items_to_remove:
+            key = item.data(0, Qt.ItemDataRole.UserRole)
+            if key:
+                if key.startswith("_folder_:") or key.startswith("_subfolder_:") or key == "_loose_files_":
+                    # É uma pasta, remove recursivamente do dicionário
+                    self._remove_folder_content_from_dict(item, file_dict)
                 else:
-                    index = self.di_tree.indexOfTopLevelItem(current)
-                    self.di_tree.takeTopLevelItem(index)
-            elif key and (key.startswith("_folder_:") or key.startswith("_subfolder_:") or key == "_loose_files_"):
-                # É uma pasta, remove todos os arquivos dela
-                self._remove_folder_item(current, self.di_files)
-                parent = current.parent()
+                    # É um arquivo
+                    if key in file_dict:
+                        del file_dict[key]
+        
+        # Agora remove os itens da árvore
+        # É seguro remover itens se fizermos isso com cuidado (ex: reiniciando a iteração ou algo assim)
+        # Mas itens_to_remove pode conter filhos de itens que também estão na lista.
+        # O ideal é remover apenas os itens "mais altos" da hierarquia de remoção.
+        
+        # Simples: removemos item por item. Se o pai já foi removido, o filho já foi junto (Qt cuida disso).
+        # Mas precisamos garantir que não tentamos remover um item que já foi deletado (pq o pai foi deletado).
+        
+        # Vamos fazer seguro: coletar chaves removidas e recarregar a árvore? Não, muito pesado.
+        # Vamos apenas deletar da árvore. Se der erro, ignoramos.
+        
+        for item in items_to_remove:
+            try:
+                parent = item.parent()
                 if parent:
-                    parent.removeChild(current)
+                    parent.removeChild(item)
                 else:
-                    index = self.di_tree.indexOfTopLevelItem(current)
-                    self.di_tree.takeTopLevelItem(index)
-                    
-    def _remove_folder_item(self, folder_item, file_dict):
-        """Remove recursivamente todos os arquivos de uma pasta"""
+                    index = tree_widget.indexOfTopLevelItem(item)
+                    if index != -1:
+                        tree_widget.takeTopLevelItem(index)
+            except RuntimeError:
+                # Item já deletado
+                pass
+
+    def _remove_folder_content_from_dict(self, folder_item, file_dict):
+        """Remove recursivamente todos os arquivos de uma pasta do dicionário"""
         for i in range(folder_item.childCount()):
             child = folder_item.child(i)
             key = child.data(0, Qt.ItemDataRole.UserRole)
-            if key and not key.startswith("_folder_:") and not key.startswith("_subfolder_:") and key != "_loose_files_":
-                if key in file_dict:
-                    del file_dict[key]
-            else:
-                # É uma subpasta, remove recursivamente
-                self._remove_folder_item(child, file_dict)
+            if key:
+                if not key.startswith("_folder_:") and not key.startswith("_subfolder_:") and key != "_loose_files_":
+                    if key in file_dict:
+                        del file_dict[key]
+                else:
+                    self._remove_folder_content_from_dict(child, file_dict)
+
+
             
     def clear_ir_list(self):
         self.ir_files.clear()
@@ -706,6 +817,20 @@ class MainWindow(QMainWindow):
         if self.current_ir and self.current_di:
             self.process_and_play(preserve_position=True)
                     
+    def toggle_dry_wet(self):
+        current_val = self.mix_slider.value()
+        
+        if current_val > 0:
+            # Indo para Dry
+            self._last_mix_value = current_val
+            self.mix_slider.setValue(0)
+            self.btn_dry_wet.setChecked(False)
+        else:
+            # Voltando para Wet
+            target = self._last_mix_value if self._last_mix_value > 0 else 100
+            self.mix_slider.setValue(target)
+            self.btn_dry_wet.setChecked(True)
+
     def format_time(self, seconds):
         minutes = int(seconds // 60)
         secs = int(seconds % 60)
