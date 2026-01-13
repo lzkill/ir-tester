@@ -192,16 +192,6 @@ class MainWindow(QMainWindow):
         splitter.setSizes([500, 500])
         main_layout.addWidget(splitter, 1)
         
-        # Progress bar for convolution (hidden by default)
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setMinimum(0)
-        self.progress_bar.setMaximum(100)
-        self.progress_bar.setValue(0)
-        self.progress_bar.setVisible(False)
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setFormat("Processing... %p%")
-        main_layout.addWidget(self.progress_bar)
-        
         # Playback controls
         controls_frame = self.create_controls_panel()
         main_layout.addWidget(controls_frame)
@@ -798,25 +788,16 @@ class MainWindow(QMainWindow):
                 self.convolution_worker.terminate()
                 self.convolution_worker.wait()
             
-            self.progress_bar.setValue(0)
-            self.progress_bar.setVisible(True)
-            
             # Cria e inicia o worker
             wet_mix = self.mix_slider.value() / 100.0
             self.convolution_worker = ConvolutionWorker(self.convolution_processor, wet_mix)
             self.convolution_worker.finished.connect(self.on_convolution_finished)
             self.convolution_worker.error.connect(self.on_convolution_error)
-            self.convolution_worker.progress.connect(self.on_convolution_progress)
             self.convolution_worker.start()
         else:
             pass  # No action needed when IR or DI are not selected
-                
-    def on_convolution_progress(self, value):
-        self.progress_bar.setValue(value)
         
     def on_convolution_finished(self, audio_data, sample_rate):
-        self.progress_bar.setVisible(False)
-        
         try:
             # Stop current playback
             self.audio_engine.stop()
@@ -860,7 +841,6 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", f"Error playing: {str(e)}")
             
     def on_convolution_error(self, error_msg):
-        self.progress_bar.setVisible(False)
         QMessageBox.warning(self, "Error", f"Error processing: {error_msg}")
                 
     def toggle_play_pause(self):
