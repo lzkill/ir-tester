@@ -1,18 +1,32 @@
 # IR Tester 🎸
 
+<div align="center">
+  <img src="frontend.png" width="800" alt="IR Tester Interface">
+  <br>
+  <em>Interface moderna com visualização de frequência em tempo real</em>
+</div>
+
+<br>
+
 Aplicação desktop para Linux para testar Impulse Responses (IR) de caixas acústicas e amplificadores de guitarra com arquivos DI (Direct Input).
 
 ## Funcionalidades
 
-- ✅ Carregamento de múltiplos arquivos IR (WAV, AIFF, FLAC)
-- ✅ Carregamento de múltiplos arquivos DI (WAV, AIFF, FLAC, MP3)
-- ✅ Carregamento de pastas inteiras de arquivos
-- ✅ Convolução em tempo real entre IR e DI
-- ✅ Reprodução imediata ao selecionar novo IR ou DI
-- ✅ Controles de reprodução: Play, Pause, Stop, Avançar, Retroceder
-- ✅ Controle de volume
-- ✅ Controle de Mix (Dry/Wet) para comparar o som original com o processado
-- ✅ Interface moderna com tema escuro
+- ✅ **Adição Inteligente**: Seleção simultânea de arquivos e pastas (mix selection)
+- ✅ **Gráfico de Frequências**: Visualização espectral (20Hz-20kHz) em tempo real do IR selecionado
+- ✅ **Carregamento Flexível**:
+    - Múltiplos arquivos IR (WAV, AIFF, FLAC)
+    - Múltiplos arquivos DI (WAV, AIFF, FLAC, MP3)
+    - Pastas inteiras com recursividade
+- ✅ **Convolução Instantânea**: Processamento em real-time entre IR e DI
+- ✅ **Mix A/B**:
+    - Slider de Mix Dry/Wet (0% a 100%)
+    - **Toggle Rápido**: Botão D/W para comparação imediata (Dry vs Último Wet)
+- ✅ **Gestão Eficiente**:
+    - Exportação em massa de IRs marcados
+    - Remoção inteligente (arquivos soltos ou pastas inteiras)
+- ✅ **Controles Completos**: Play, Pause, Loop, Rewind/Forward e Volume
+- ✅ **Interface Dark**: Tema moderno construído com Qt Stylesheets (QSS)
 
 ## Instalação
 

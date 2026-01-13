@@ -5,16 +5,112 @@ Main Window da aplicação IR Tester
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTreeWidget, QTreeWidgetItem, QPushButton, QLabel, QSlider, QGroupBox,
-    QFileDialog, QSplitter, QFrame, QMessageBox, QProgressBar, QTreeWidgetItemIterator, QApplication,
-    QDialog, QTreeView, QAbstractItemView, QHeaderView, QListView
+    QDialog, QTreeView, QAbstractItemView, QHeaderView, QListView,
+    QSplitter, QFrame, QMessageBox, QProgressBar, QTreeWidgetItemIterator, QApplication, QFileDialog
 )
 from PyQt6.QtCore import Qt, QTimer, QDir
 from PyQt6.QtGui import QIcon, QFont, QAction
 from PyQt6.QtWidgets import QMenu, QStyle
 
+# Matplotlib Imports
+import matplotlib
+matplotlib.use('qtagg')
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+import numpy as np
+import soundfile as sf
+import scipy.fft
+
 from audio.audio_engine import AudioEngine
 from audio.convolution import ConvolutionProcessor
 from audio.convolution_worker import ConvolutionWorker
+
+
+class IRPlotWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Dark style for matplotlib to match the UI
+        self.figure = Figure(figsize=(5, 3), dpi=100, facecolor='#1e1e1e')
+        self.canvas = FigureCanvasQTAgg(self.figure)
+        self.ax = self.figure.add_subplot(111)
+        self.ax.set_facecolor('#1e1e1e')
+        
+        # Initial empty plot styling
+        self._style_axes()
+        
+        layout.addWidget(self.canvas)
+        
+    def _style_axes(self):
+        """Aplica estilos escuros aos eixos"""
+        self.ax.tick_params(colors='#888888', labelsize=8)
+        self.ax.spines['bottom'].set_color('#444444')
+        self.ax.spines['top'].set_color('#444444') 
+        self.ax.spines['left'].set_color('#444444')
+        self.ax.spines['right'].set_color('#444444')
+        self.ax.xaxis.label.set_color('#888888')
+        self.ax.yaxis.label.set_color('#888888')
+        self.ax.grid(True, color='#333333', linestyle='--', linewidth=0.5)
+        self.figure.tight_layout()
+
+    def plot_ir(self, file_path):
+        """Calcula e plota a resposta em frequência do IR"""
+        try:
+            # Ler áudio
+            data, samplerate = sf.read(file_path)
+            
+            # Se estéreo, mixa para mono para visualização
+            if len(data.shape) > 1:
+                data = np.mean(data, axis=1)
+                
+            # FFT
+            n = len(data)
+            yf = scipy.fft.fft(data)
+            xf = scipy.fft.fftfreq(n, 1 / samplerate)
+            
+            # Pega apenas a metade positiva do espectro
+            half_n = n // 2
+            xf = xf[:half_n]
+            magnitude = np.abs(yf[:half_n])
+            
+            # Evita log de zero
+            magnitude = np.where(magnitude == 0, 1e-10, magnitude)
+            
+            # Converte para dB e normaliza (pico em 0dB)
+            response_db = 20 * np.log10(magnitude)
+            max_db = np.max(response_db)
+            response_db = response_db - max_db
+            
+            # Plot
+            self.ax.clear()
+            self._style_axes()
+            
+            # Filtra para 20Hz - 20kHz
+            mask = (xf >= 20) & (xf <= 20000)
+            
+            self.ax.semilogx(xf[mask], response_db[mask], color='#0078d4', linewidth=1.5)
+            self.ax.set_xlabel('Frequência (Hz)', fontsize=8)
+            self.ax.set_ylabel('Amplitude (dB)', fontsize=8)
+            self.ax.set_title('Resposta em Frequência', color='#cccccc', fontsize=9)
+            self.ax.set_ylim([-60, 5]) # Limita eixo Y para focar no útil
+            self.ax.set_xlim([20, 20000])
+            
+            # Converte ticks do eixo X para Hz legíveis
+            self.ax.xaxis.set_major_formatter(matplotlib.ticker.ScalarFormatter())
+            
+            self.canvas.draw()
+            
+        except Exception as e:
+            print(f"Erro ao plotar IR: {e}")
+            self.clear_plot()
+
+    def clear_plot(self):
+        self.ax.clear()
+        self._style_axes()
+        self.ax.text(0.5, 0.5, "Selecione um IR", ha='center', va='center', color='#555555')
+        self.canvas.draw()
 
 
 class MainWindow(QMainWindow):
@@ -134,6 +230,11 @@ class MainWindow(QMainWindow):
         self.ir_info_label = QLabel("Nenhum IR selecionado")
         self.ir_info_label.setStyleSheet("color: #888888; font-style: italic;")
         layout.addWidget(self.ir_info_label)
+        
+        # Gráfico de Frequência
+        self.ir_plot_widget = IRPlotWidget()
+        self.ir_plot_widget.setFixedHeight(180) # Altura fixa para não ocupar muito espaço
+        layout.addWidget(self.ir_plot_widget)
         
         return group
         
@@ -637,13 +738,16 @@ class MainWindow(QMainWindow):
                     self.current_ir = filepath
                     info = self.convolution_processor.load_ir(filepath)
                     self.ir_info_label.setText(f"✓ {info}")
+                    # Atualiza gráfico
+                    self.ir_plot_widget.plot_ir(filepath)
                     # Preserva a posição ao trocar IR
                     self.process_and_play(preserve_position=True)
             else:
-                # É uma pasta, não faz nada
-                pass
+                # É uma pasta, limpa o gráfico
+                self.ir_plot_widget.clear_plot()
         else:
             self.ir_info_label.setText("Nenhum IR selecionado")
+            self.ir_plot_widget.clear_plot()
             
     def on_di_selected(self, current, previous):
         if current:
