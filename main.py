@@ -22,6 +22,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("IR Tester")
     app.setApplicationVersion(get_version())
+    app.setDesktopFileName("ir-tester")  # Match StartupWMClass in .desktop file
     
     # Dark style for the application
     # Modern dark theme
