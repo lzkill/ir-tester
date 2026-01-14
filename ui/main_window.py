@@ -206,6 +206,10 @@ class MainWindow(QMainWindow):
         self.ir_info_label.setStyleSheet("color: #888888; font-style: italic;")
         layout.addWidget(self.ir_info_label)
         
+        self.ir_counter_label = QLabel("0 files | 0 selected")
+        self.ir_counter_label.setStyleSheet("color: #4FC3F7; font-weight: bold;")
+        layout.addWidget(self.ir_counter_label)
+        
         self.ir_plot_widget = IRPlotWidget()
         self.ir_plot_widget.setFixedHeight(180)
         layout.addWidget(self.ir_plot_widget)
@@ -237,6 +241,10 @@ class MainWindow(QMainWindow):
         self.di_info_label = QLabel("No DI selected")
         self.di_info_label.setStyleSheet("color: #888888; font-style: italic;")
         layout.addWidget(self.di_info_label)
+        
+        self.di_counter_label = QLabel("0 files | 0 selected")
+        self.di_counter_label.setStyleSheet("color: #4FC3F7; font-weight: bold;")
+        layout.addWidget(self.di_counter_label)
         
         return group
         
@@ -359,6 +367,9 @@ class MainWindow(QMainWindow):
         self.ir_tree.currentItemChanged.connect(self.on_ir_selected)
         self.di_tree.currentItemChanged.connect(self.on_di_selected)
         
+        self.ir_tree.itemChanged.connect(lambda item, col: self.on_item_checked(item, col, self.ir_tree, self.ir_files, self.ir_counter_label))
+        self.di_tree.itemChanged.connect(lambda item, col: self.on_item_checked(item, col, self.di_tree, self.di_files, self.di_counter_label))
+        
         self.btn_play_pause.clicked.connect(self.toggle_play_pause)
         self.btn_stop.clicked.connect(self.stop_playback)
         self.btn_rewind.clicked.connect(self.rewind)
@@ -373,6 +384,82 @@ class MainWindow(QMainWindow):
         
     def on_loop_toggled(self, checked):
         self.is_looping = checked
+        
+    def on_item_checked(self, item, column, tree_widget, file_dict, counter_label):
+        """Handles checkbox changes - selects children and updates counter"""
+        if column != 0:
+            return
+            
+        check_state = item.checkState(0)
+        key = item.data(0, Qt.ItemDataRole.UserRole)
+        
+        # If it's a folder, propagate check state to all children
+        if key and (key.startswith("_folder_:") or key.startswith("_subfolder_:") or key == "_loose_files_"):
+            tree_widget.blockSignals(True)
+            self._set_children_check_state(item, check_state)
+            tree_widget.blockSignals(False)
+        
+        # Update parent state based on children
+        self._update_parent_check_state(item, tree_widget)
+        
+        # Update counter
+        self.update_file_counter(tree_widget, file_dict, counter_label)
+        
+    def _set_children_check_state(self, parent_item, check_state):
+        """Recursively sets check state for all children"""
+        for i in range(parent_item.childCount()):
+            child = parent_item.child(i)
+            child.setCheckState(0, check_state)
+            # Recursively set children of children
+            if child.childCount() > 0:
+                self._set_children_check_state(child, check_state)
+                
+    def _update_parent_check_state(self, item, tree_widget):
+        """Updates parent checkbox based on children states"""
+        parent = item.parent()
+        if parent is None:
+            return
+            
+        tree_widget.blockSignals(True)
+        
+        checked_count = 0
+        total_count = parent.childCount()
+        
+        for i in range(total_count):
+            child = parent.child(i)
+            if child.checkState(0) == Qt.CheckState.Checked:
+                checked_count += 1
+        
+        if checked_count == 0:
+            parent.setCheckState(0, Qt.CheckState.Unchecked)
+        elif checked_count == total_count:
+            parent.setCheckState(0, Qt.CheckState.Checked)
+        else:
+            parent.setCheckState(0, Qt.CheckState.PartiallyChecked)
+            
+        tree_widget.blockSignals(False)
+        
+        # Recursively update grandparents
+        self._update_parent_check_state(parent, tree_widget)
+        
+    def update_file_counter(self, tree_widget, file_dict, counter_label):
+        """Updates the file counter label for a tree widget"""
+        total_files = 0
+        selected_files = 0
+        
+        iterator = QTreeWidgetItemIterator(tree_widget)
+        while iterator.value():
+            item = iterator.value()
+            key = item.data(0, Qt.ItemDataRole.UserRole)
+            
+            # Only count actual files, not folders
+            if key and not key.startswith("_folder_:") and not key.startswith("_subfolder_:") and key != "_loose_files_":
+                total_files += 1
+                if item.checkState(0) == Qt.CheckState.Checked:
+                    selected_files += 1
+            iterator += 1
+        
+        counter_label.setText(f"{total_files} files | {selected_files} selected")
         
     def open_unified_add_dialog(self, is_ir=True):
         """Opens the universal dialog to add files and folders using modified QFileDialog"""
@@ -449,6 +536,12 @@ class MainWindow(QMainWindow):
                     file_item.setCheckState(0, Qt.CheckState.Unchecked)
         finally:
             tree_widget.setUpdatesEnabled(True)
+            
+        # Update counter after adding files
+        if tree_widget == self.ir_tree:
+            self.update_file_counter(tree_widget, file_dict, self.ir_counter_label)
+        else:
+            self.update_file_counter(tree_widget, file_dict, self.di_counter_label)
                 
     def add_folder_to_tree(self, folder, file_dict, tree_widget):
         """Adds an entire folder to the tree maintaining structure"""
@@ -507,6 +600,12 @@ class MainWindow(QMainWindow):
                             file_item.setCheckState(0, Qt.CheckState.Unchecked)
         finally:
             tree_widget.setUpdatesEnabled(True)
+            
+        # Update counter after adding folder
+        if tree_widget == self.ir_tree:
+            self.update_file_counter(tree_widget, file_dict, self.ir_counter_label)
+        else:
+            self.update_file_counter(tree_widget, file_dict, self.di_counter_label)
                         
     def export_marked_irs(self):
         """Exports checked IRs to a folder with optional normalization"""
@@ -712,6 +811,12 @@ class MainWindow(QMainWindow):
                         tree_widget.takeTopLevelItem(index)
             except RuntimeError:
                 pass
+        
+        # Update counter after removal
+        if tree_widget == self.ir_tree:
+            self.update_file_counter(tree_widget, self.ir_files, self.ir_counter_label)
+        else:
+            self.update_file_counter(tree_widget, self.di_files, self.di_counter_label)
 
     def _remove_folder_content_from_dict(self, folder_item, file_dict):
         """Recursively removes all files from a folder from the dictionary"""""
@@ -732,12 +837,14 @@ class MainWindow(QMainWindow):
         self.ir_tree.clear()
         self.current_ir = None
         self.ir_info_label.setText("No IR selected")
+        self.ir_counter_label.setText("0 files | 0 selected")
         
     def clear_di_list(self):
         self.di_files.clear()
         self.di_tree.clear()
         self.current_di = None
         self.di_info_label.setText("No DI selected")
+        self.di_counter_label.setText("0 files | 0 selected")
         
     def on_ir_selected(self, current, previous):
         if current:
