@@ -40,8 +40,38 @@ class IRPlotWidget(QWidget):
         self.ax.set_facecolor('#1e1e1e')
         
         self._style_axes()
+        self._adjust_layout()
         
         layout.addWidget(self.canvas)
+        
+        # Connect resize event to adjust layout
+        self.canvas.mpl_connect('resize_event', self._on_resize)
+    
+    def _adjust_layout(self):
+        """Adjusts figure layout with balanced margins"""
+        self.figure.tight_layout(pad=0.5)
+        # Adjust after tight_layout for fine-tuning
+        self.figure.subplots_adjust(left=0.12, right=0.97, top=0.88, bottom=0.18)
+        
+    def _on_resize(self, event):
+        """Adjusts margins on resize to prevent clipping"""
+        try:
+            height = event.height
+            
+            # Use tight_layout as base, then fine-tune
+            self.figure.tight_layout(pad=0.3)
+            
+            # Adjust margins based on size for labels visibility
+            if height < 120:
+                self.figure.subplots_adjust(top=0.82, bottom=0.28)
+            elif height < 160:
+                self.figure.subplots_adjust(top=0.85, bottom=0.22)
+            elif height < 200:
+                self.figure.subplots_adjust(top=0.87, bottom=0.18)
+            
+            self.canvas.draw_idle()
+        except Exception:
+            pass
         
     def _style_axes(self):
         """Applies dark styles to the axes"""
@@ -53,7 +83,6 @@ class IRPlotWidget(QWidget):
         self.ax.xaxis.label.set_color('#888888')
         self.ax.yaxis.label.set_color('#888888')
         self.ax.grid(True, color='#333333', linestyle='--', linewidth=0.5)
-        self.figure.tight_layout()
 
     def plot_ir(self, file_path):
         """Calculates and plots the IR frequency response"""
@@ -197,22 +226,38 @@ class MainWindow(QMainWindow):
         
         layout.addLayout(btn_layout)
         
+        # Splitter vertical para redimensionar entre árvore e gráfico
+        ir_splitter = QSplitter(Qt.Orientation.Vertical)
+        
+        # Container para a árvore e labels
+        tree_container = QWidget()
+        tree_layout = QVBoxLayout(tree_container)
+        tree_layout.setContentsMargins(0, 0, 0, 0)
+        tree_layout.setSpacing(5)
+        
         self.ir_tree = QTreeWidget()
         self.ir_tree.setHeaderHidden(True)
         self.ir_tree.setSelectionMode(QTreeWidget.SelectionMode.SingleSelection)
-        layout.addWidget(self.ir_tree)
+        tree_layout.addWidget(self.ir_tree)
         
         self.ir_info_label = QLabel("No IR selected")
         self.ir_info_label.setStyleSheet("color: #888888; font-style: italic;")
-        layout.addWidget(self.ir_info_label)
+        tree_layout.addWidget(self.ir_info_label)
         
         self.ir_counter_label = QLabel("0 files | 0 selected")
         self.ir_counter_label.setStyleSheet("color: #4FC3F7; font-weight: bold;")
-        layout.addWidget(self.ir_counter_label)
+        tree_layout.addWidget(self.ir_counter_label)
+        
+        ir_splitter.addWidget(tree_container)
         
         self.ir_plot_widget = IRPlotWidget()
-        self.ir_plot_widget.setFixedHeight(180)
-        layout.addWidget(self.ir_plot_widget)
+        self.ir_plot_widget.setMinimumHeight(100)
+        ir_splitter.addWidget(self.ir_plot_widget)
+        
+        # Define proporções iniciais (árvore maior, gráfico menor)
+        ir_splitter.setSizes([300, 180])
+        
+        layout.addWidget(ir_splitter, 1)
         
         return group
         
