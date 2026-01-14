@@ -246,7 +246,7 @@ class MainWindow(QMainWindow):
         
         position_layout = QHBoxLayout()
         
-        self.time_label = QLabel("00:00"))
+        self.time_label = QLabel("00:00")
         self.time_label.setMinimumWidth(50)
         position_layout.addWidget(self.time_label)
         
@@ -536,7 +536,7 @@ class MainWindow(QMainWindow):
         dialog.setMinimumWidth(350)
         layout = QVBoxLayout(dialog)
         
-        normalize_check = QCheckBox("Normalize IRs (equalize volume levels)"))
+        normalize_check = QCheckBox("Normalize IRs (equalize volume levels)")
         normalize_check.setChecked(False)
         layout.addWidget(normalize_check)
         
