@@ -21,23 +21,16 @@ class ConvolutionProcessor:
         self.last_sample_rate = None
         
     def load_ir(self, filepath: str) -> str:
-        """
-        Carrega um arquivo de Impulse Response
-        
-        Returns:
-            String com informações do arquivo
-        """
+        """Load an Impulse Response file"""
         try:
             data, sample_rate = sf.read(filepath, dtype='float32')
             
-            # Converte para mono se necessário
             if len(data.shape) > 1:
                 data = np.mean(data, axis=1)
                 
             info_obj = sf.info(filepath)
             bit_depth = info_obj.subtype
             
-            # Normaliza
             max_val = np.max(np.abs(data))
             if max_val > 0:
                 data = data / max_val
@@ -54,23 +47,16 @@ class ConvolutionProcessor:
             raise Exception(f"Error loading IR: {str(e)}")
             
     def load_di(self, filepath: str) -> str:
-        """
-        Carrega um arquivo DI
-        
-        Returns:
-            String com informações do arquivo
-        """
+        """Load a DI file"""
         try:
             data, sample_rate = sf.read(filepath, dtype='float32')
             
-            # Convert to mono if necessary
             if len(data.shape) > 1:
                 data = np.mean(data, axis=1)
                 
             info_obj = sf.info(filepath)
             bit_depth = info_obj.subtype
             
-            # Normalize
             max_val = np.max(np.abs(data))
             if max_val > 0:
                 data = data / max_val
@@ -87,43 +73,27 @@ class ConvolutionProcessor:
             raise Exception(f"Error loading DI: {str(e)}")
             
     def process(self, wet_mix: float = 1.0) -> tuple:
-        """
-        Processa a convolução entre o DI e o IR carregados
-        
-        Args:
-            wet_mix: Proporção do sinal processado (0.0 = dry, 1.0 = wet)
-            
-        Returns:
-            Tuple (audio_data, sample_rate) ou (None, None) se erro
-        """
+        """Process convolution between the loaded DI and IR"""
         if self.ir_data is None or self.di_data is None:
             return None, None
             
         try:
-            # Resample IR if necessary to match DI
             ir_resampled = self.ir_data
             if self.ir_sample_rate != self.di_sample_rate:
-                # Calculate new number of samples
                 num_samples = int(len(self.ir_data) * self.di_sample_rate / self.ir_sample_rate)
                 ir_resampled = signal.resample(self.ir_data, num_samples)
                 
-            # Perform convolution using FFT for better performance
             # fftconvolve is much faster for long signals
             wet_signal = signal.fftconvolve(self.di_data, ir_resampled, mode='full')
             
-            # Truncate to original DI size (or a bit more for IR decay)
-            # Add IR size to preserve decay
             output_length = len(self.di_data) + len(ir_resampled) - 1
             wet_signal = wet_signal[:output_length]
             
-            # Normalize wet signal
             max_wet = np.max(np.abs(wet_signal))
             if max_wet > 0:
                 wet_signal = wet_signal / max_wet
                 
-            # Apply dry/wet mix
             if wet_mix < 1.0:
-                # Extend dry signal to match wet
                 dry_signal = np.zeros(len(wet_signal))
                 dry_signal[:len(self.di_data)] = self.di_data
                 
@@ -131,12 +101,10 @@ class ConvolutionProcessor:
             else:
                 result = wet_signal
                 
-            # Normalize final result
             max_result = np.max(np.abs(result))
             if max_result > 0:
                 result = result / max_result * 0.9  # Leave headroom
                 
-            # Convert to float32
             result = result.astype(np.float32)
             
             self.last_result = result

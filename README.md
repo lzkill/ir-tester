@@ -21,6 +21,9 @@ Desktop application for Linux to test Impulse Responses (IR) of guitar cabinets 
 - ✅ **A/B Mix**:
     - Dry/Wet Mix Slider (0% to 100%)
     - **Quick Toggle**: D/W button for immediate comparison (Dry vs Last Wet)
+- ✅ **Export with Normalization**: Export selected IRs with optional volume normalization
+    - **Peak**: Normalize to 0 dB peak
+    - **RMS**: Normalize to target loudness level (consistent perceived volume)
 - ✅ **Efficient Management**: Batch export and smart removal (files/folders)
 - ✅ **Dark Interface**: Modern theme built with Qt Stylesheets (QSS)
 - ✅ **Complete Controls**: Play, Pause, Loop, Rewind/Forward and Volume
@@ -86,6 +89,17 @@ python main.py
    - **Volume**: Adjusts output level
    - **Mix (Dry/Wet)**: 0% = original sound (DI), 100% = processed sound (convolution)
    - **Equalizer 🎚️**: 10-band equalizer for shaping final tone. Has **Toggle (ON/OFF)** and **Reset (Flat)** buttons.
+
+6. **Exporting IRs**:
+   - Check the IRs you want to export in the list
+   - Click "**Export**" button
+   - Choose normalization options:
+     - **No normalization**: Simple file copy
+     - **Peak (0 dB)**: Scales each IR so the maximum peak reaches 0 dB
+     - **RMS**: Scales each IR to a target RMS level for consistent perceived loudness (recommended: -18 dB to -12 dB)
+   - Select destination folder
+
+   > 💡 **Note**: Normalization is a linear operation that only adjusts volume - it does **not** alter the tonal character or frequency response of your IRs.
 
 ## Supported formats
 

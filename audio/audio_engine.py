@@ -7,15 +7,12 @@ import sounddevice as sd
 
 
 class AudioEngine:
-    """
-    Audio playback engine with play, pause, stop, seek controls
-    Uses atomic variables instead of locks to avoid deadlocks in callback
-    """
+    """Audio playback engine with play, pause, stop, seek controls"""
     
     def __init__(self):
         self.audio_data = None
         self.sample_rate = None
-        self.position = 0  # Posição atual em samples
+        self.position = 0
         self.volume = 0.8
         self._is_playing = False
         self._is_paused = False
@@ -34,7 +31,6 @@ class AudioEngine:
         
     def update_audio(self, audio_data: np.ndarray):
         """Updates audio buffer in real-time (hot-swap)"""
-        # Ensures contiguous array and float32
         data = np.ascontiguousarray(audio_data, dtype=np.float32)
         if self._is_playing:
             self.audio_data = data
@@ -46,7 +42,6 @@ class AudioEngine:
         if not self.has_audio():
             return
             
-        # Stop previous stream if exists
         if self.stream is not None:
             try:
                 self.stream.stop()
@@ -96,8 +91,6 @@ class AudioEngine:
             except Exception as e:
                 print(f"Error in audio callback: {e}")
                 outdata.fill(0)
-                # Opcional: Parar reprodução em caso de erro crítico
-                # raise sd.CallbackAbort()
                 
         try:
             self.stream = sd.OutputStream(
@@ -122,7 +115,6 @@ class AudioEngine:
         if self._is_paused and self._is_playing:
             self._is_paused = False
         elif not self._is_playing and self.has_audio():
-            # If stopped, restart from beginning or current position
             self.play()
                 
     def stop(self):
